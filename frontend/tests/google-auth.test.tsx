@@ -13,6 +13,12 @@ function fixture(configured = true) {
   vi.stubGlobal('fetch', vi.fn(async (path: string) => { calls.push(path); return path.endsWith('/config') ? ok({ clientId: configured ? '123-test.apps.googleusercontent.com' : null }) : path.endsWith('/challenge') ? ok({ nonce: 'n'.repeat(43), csrfToken: 'c'.repeat(43), expiresAt: Math.floor(Date.now() / 1000) + 300 }) : ok(result) }))
   return { calls, initialize, respond: () => { callback?.({ credential: 'provider-test-token' }) } }
 }
+it('requests browser-mediated Google account selection without automatic account acceptance',async()=>{
+  const f=fixture(),success=vi.fn();const {GoogleSignIn}=await import('../src/components/GoogleSignIn');render(<GoogleSignIn onSuccess={success}/>);
+  await userEvent.click(await screen.findByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');
+  expect(f.initialize.mock.calls[0]?.[0]).toMatchObject({use_fedcm_for_button:true,button_auto_select:false,auto_select:false,nonce:'n'.repeat(43)});
+  expect(success).not.toHaveBeenCalled();await act(async()=>f.respond());await waitFor(()=>expect(success).toHaveBeenCalledWith(result));
+});
 it('keeps unconfigured Google unavailable without loading its SDK', async () => {
   fixture(false); const { GoogleSignIn } = await import('../src/components/GoogleSignIn'); render(<GoogleSignIn onSuccess={vi.fn()} />)
   expect(await screen.findByText(/Google sign-in is not configured/)).toBeVisible()

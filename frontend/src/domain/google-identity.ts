@@ -1,5 +1,5 @@
 interface GoogleIdentity {
-  initialize(options: { client_id: string; nonce: string; callback: (response: { credential?: string }) => void; ux_mode: 'popup'; auto_select: false }): void
+  initialize(options: { client_id: string; nonce: string; callback: (response: { credential?: string }) => void; ux_mode: 'popup'; auto_select: false; use_fedcm_for_button: true; button_auto_select: false }): void
   renderButton(element: HTMLElement, options: { type: 'standard'; theme: 'outline'; size: 'large'; width: number }): void
   cancel(): void
 }

@@ -34,7 +34,9 @@ export function GoogleSignIn({ onSuccess, disabled = false, mode='login',passwor
       const sdk = await loadGoogleIdentity(); if (!live()) return
       const challenge = await googleApi.challenge(controller.signal); if (!live() || !host.current) return
       timer = setTimeout(() => { if (live()) { abandon(); setState('idle'); setError('Google sign-in expired. Please try again.') } }, Math.max(0, challenge.expiresAt * 1000 - Date.now()))
-      sdk.initialize({ client_id: clientId, nonce: challenge.nonce, auto_select: false, ux_mode: 'popup', callback: async response => {
+      // Modern Chrome mediates account selection without the legacy window.open
+      // popup, which can remain blocked by browser/extension settings.
+      sdk.initialize({ client_id: clientId, nonce: challenge.nonce, auto_select: false, use_fedcm_for_button: true, button_auto_select: false, ux_mode: 'popup', callback: async response => {
         if (!live() || used || typeof response.credential !== 'string' || !response.credential || response.credential.length > 16384) return
         used = true; setState('verifying')
         try { const result = proof?await googleApi.link(response.credential,challenge.csrfToken,existingPassword,controller.signal,proof.accessToken):mode==='link'?await googleApi.link(response.credential,challenge.csrfToken,linkPassword,controller.signal):await googleApi.login(response.credential, challenge.csrfToken, controller.signal); if (live()) { props.current.onSuccess(result); abandon(); setState('idle');setLinkRequired(false) } }
