@@ -1,0 +1,962 @@
+[
+  {
+    "viewport": 320,
+    "route": "/",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 305,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/movies",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 305,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/stream",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Stories beyond the big screen"
+    ],
+    "scrollWidth": 305,
+    "text": "CINEHOOK · streamStories beyond the big screenAn original collection of story concepts, curated for the curious.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples,",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/events",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Music. Moments. Memories."
+    ],
+    "scrollWidth": 305,
+    "text": "CINEHOOK · eventsMusic. Moments. Memories.Discover a world of live experiencesDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Book",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/sports",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Live sports. Feel the action."
+    ],
+    "scrollWidth": 305,
+    "text": "CINEHOOK · sportsLive sports. Feel the action.The thrill of the game, all in one placeDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public even",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/activities",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Unlock new experiences"
+    ],
+    "scrollWidth": 305,
+    "text": "CINEHOOK · activitiesUnlock new experiencesLearn. Play. Explore. Together.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Booking ",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/offers",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "More cinema.More possibilities."
+    ],
+    "scrollWidth": 320,
+    "text": "CineHook offersMore cinema.More possibilities.Explore offers when they become available.AllUPINet BankingCredit CardDebit CardNo offers availablePromotions are not currently provid",
+    "width": 320
+  },
+  {
+    "viewport": 320,
+    "route": "/login",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Welcome back"
+    ],
+    "scrollWidth": 320,
+    "text": "CineHookBack to homeLoginRegisterWelcome backLogin to continue your booking.EmailPasswordLoginForgot password?orGoogle sign-in is not configured. Please use email and password.Don’",
+    "width": 320
+  },
+  {
+    "viewport": 320,
+    "route": "/register",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Create account"
+    ],
+    "scrollWidth": 320,
+    "text": "CineHookBack to homeLoginRegisterCreate accountNameEmailPasswordConfirm passwordRegisterorGoogle sign-in is not configured. Please use email and password.Already have an account? L",
+    "width": 320
+  },
+  {
+    "viewport": 320,
+    "route": "/help",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "How can we help?"
+    ],
+    "scrollWidth": 305,
+    "text": "CINEHOOK SUPPORTHow can we help?A little clarity, before your next movie night.How do I book a movie ticket?+Choose a movie, city, date and show, then select available seats. Sign ",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/help/chat",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Chatbot support is coming soon"
+    ],
+    "scrollWidth": 320,
+    "text": "← Back to Help & SupportCINEHOOK AI SUPPORTChatbot support is coming soonChatbot integration coming soon. No chatbot or live customer support is connected yet.Browse help topics",
+    "width": 320
+  },
+  {
+    "viewport": 320,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine"
+    ],
+    "scrollWidth": 305,
+    "text": "ON THE BIG SCREENDeadpool & Wolverineenglish • 128 min • 2024action / comedyDeadpool joins Wolverine on a journey that threatens their worlds.डेडपूल और वूल्वरिन एक ऐसे सफर पर निकलत",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Choose your seats"
+    ],
+    "scrollWidth": 305,
+    "text": "Choose your seatsDeadpool & Wolverine • CineHook Demo Delhi • 10 Oct 2026, 06:30 pm ISTChoose up to 10 seats. The 5-minute hold starts only after Continue succeeds.SCREENAA1A2A3A4A",
+    "width": 305
+  },
+  {
+    "viewport": 390,
+    "route": "/",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 375,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/movies",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 375,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/stream",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Stories beyond the big screen"
+    ],
+    "scrollWidth": 375,
+    "text": "CINEHOOK · streamStories beyond the big screenAn original collection of story concepts, curated for the curious.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples,",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/events",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Music. Moments. Memories."
+    ],
+    "scrollWidth": 375,
+    "text": "CINEHOOK · eventsMusic. Moments. Memories.Discover a world of live experiencesDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Book",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/sports",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Live sports. Feel the action."
+    ],
+    "scrollWidth": 375,
+    "text": "CINEHOOK · sportsLive sports. Feel the action.The thrill of the game, all in one placeDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public even",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/activities",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Unlock new experiences"
+    ],
+    "scrollWidth": 375,
+    "text": "CINEHOOK · activitiesUnlock new experiencesLearn. Play. Explore. Together.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Booking ",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/offers",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "More cinema.More possibilities."
+    ],
+    "scrollWidth": 390,
+    "text": "CineHook offersMore cinema.More possibilities.Explore offers when they become available.AllUPINet BankingCredit CardDebit CardNo offers availablePromotions are not currently provid",
+    "width": 390
+  },
+  {
+    "viewport": 390,
+    "route": "/login",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Welcome back"
+    ],
+    "scrollWidth": 390,
+    "text": "CineHookBack to homeLoginRegisterWelcome backLogin to continue your booking.EmailPasswordLoginForgot password?orGoogle sign-in is not configured. Please use email and password.Don’",
+    "width": 390
+  },
+  {
+    "viewport": 390,
+    "route": "/register",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Create account"
+    ],
+    "scrollWidth": 390,
+    "text": "CineHookBack to homeLoginRegisterCreate accountNameEmailPasswordConfirm passwordRegisterorGoogle sign-in is not configured. Please use email and password.Already have an account? L",
+    "width": 390
+  },
+  {
+    "viewport": 390,
+    "route": "/help",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "How can we help?"
+    ],
+    "scrollWidth": 375,
+    "text": "CINEHOOK SUPPORTHow can we help?A little clarity, before your next movie night.How do I book a movie ticket?+Choose a movie, city, date and show, then select available seats. Sign ",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/help/chat",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Chatbot support is coming soon"
+    ],
+    "scrollWidth": 390,
+    "text": "← Back to Help & SupportCINEHOOK AI SUPPORTChatbot support is coming soonChatbot integration coming soon. No chatbot or live customer support is connected yet.Browse help topics",
+    "width": 390
+  },
+  {
+    "viewport": 390,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine"
+    ],
+    "scrollWidth": 375,
+    "text": "ON THE BIG SCREENDeadpool & Wolverineenglish • 128 min • 2024action / comedyDeadpool joins Wolverine on a journey that threatens their worlds.डेडपूल और वूल्वरिन एक ऐसे सफर पर निकलत",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Choose your seats"
+    ],
+    "scrollWidth": 375,
+    "text": "Choose your seatsDeadpool & Wolverine • CineHook Demo Delhi • 10 Oct 2026, 06:30 pm ISTChoose up to 10 seats. The 5-minute hold starts only after Continue succeeds.SCREENAA1A2A3A4A",
+    "width": 375
+  },
+  {
+    "viewport": 768,
+    "route": "/",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 753,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/movies",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 753,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/stream",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Stories beyond the big screen"
+    ],
+    "scrollWidth": 753,
+    "text": "CINEHOOK · streamStories beyond the big screenAn original collection of story concepts, curated for the curious.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples,",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/events",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Music. Moments. Memories."
+    ],
+    "scrollWidth": 753,
+    "text": "CINEHOOK · eventsMusic. Moments. Memories.Discover a world of live experiencesDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Book",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/sports",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Live sports. Feel the action."
+    ],
+    "scrollWidth": 753,
+    "text": "CINEHOOK · sportsLive sports. Feel the action.The thrill of the game, all in one placeDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public even",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/activities",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Unlock new experiences"
+    ],
+    "scrollWidth": 753,
+    "text": "CINEHOOK · activitiesUnlock new experiencesLearn. Play. Explore. Together.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Booking ",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/offers",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "More cinema.More possibilities."
+    ],
+    "scrollWidth": 768,
+    "text": "CineHook offersMore cinema.More possibilities.Explore offers when they become available.AllUPINet BankingCredit CardDebit CardNo offers availablePromotions are not currently provid",
+    "width": 768
+  },
+  {
+    "viewport": 768,
+    "route": "/login",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Welcome back"
+    ],
+    "scrollWidth": 768,
+    "text": "CineHookBack to homeLoginRegisterWelcome backLogin to continue your booking.EmailPasswordLoginForgot password?orGoogle sign-in is not configured. Please use email and password.Don’",
+    "width": 768
+  },
+  {
+    "viewport": 768,
+    "route": "/register",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Create account"
+    ],
+    "scrollWidth": 768,
+    "text": "CineHookBack to homeLoginRegisterCreate accountNameEmailPasswordConfirm passwordRegisterorGoogle sign-in is not configured. Please use email and password.Already have an account? L",
+    "width": 768
+  },
+  {
+    "viewport": 768,
+    "route": "/help",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "How can we help?"
+    ],
+    "scrollWidth": 753,
+    "text": "CINEHOOK SUPPORTHow can we help?A little clarity, before your next movie night.How do I book a movie ticket?+Choose a movie, city, date and show, then select available seats. Sign ",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/help/chat",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Chatbot support is coming soon"
+    ],
+    "scrollWidth": 768,
+    "text": "← Back to Help & SupportCINEHOOK AI SUPPORTChatbot support is coming soonChatbot integration coming soon. No chatbot or live customer support is connected yet.Browse help topics",
+    "width": 768
+  },
+  {
+    "viewport": 768,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine"
+    ],
+    "scrollWidth": 753,
+    "text": "ON THE BIG SCREENDeadpool & Wolverineenglish • 128 min • 2024action / comedyDeadpool joins Wolverine on a journey that threatens their worlds.डेडपूल और वूल्वरिन एक ऐसे सफर पर निकलत",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Choose your seats"
+    ],
+    "scrollWidth": 753,
+    "text": "Choose your seatsDeadpool & Wolverine • CineHook Demo Delhi • 10 Oct 2026, 06:30 pm ISTChoose up to 10 seats. The 5-minute hold starts only after Continue succeeds.SCREENAA1A2A3A4A",
+    "width": 753
+  },
+  {
+    "viewport": 1024,
+    "route": "/",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 1009,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/movies",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 1009,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/stream",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Stories beyond the big screen"
+    ],
+    "scrollWidth": 1009,
+    "text": "CINEHOOK · streamStories beyond the big screenAn original collection of story concepts, curated for the curious.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples,",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/events",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Music. Moments. Memories."
+    ],
+    "scrollWidth": 1009,
+    "text": "CINEHOOK · eventsMusic. Moments. Memories.Discover a world of live experiencesDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Book",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/sports",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Live sports. Feel the action."
+    ],
+    "scrollWidth": 1009,
+    "text": "CINEHOOK · sportsLive sports. Feel the action.The thrill of the game, all in one placeDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public even",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/activities",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Unlock new experiences"
+    ],
+    "scrollWidth": 1009,
+    "text": "CINEHOOK · activitiesUnlock new experiencesLearn. Play. Explore. Together.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Booking ",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/offers",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "More cinema.More possibilities."
+    ],
+    "scrollWidth": 1024,
+    "text": "CineHook offersMore cinema.More possibilities.Explore offers when they become available.AllUPINet BankingCredit CardDebit CardNo offers availablePromotions are not currently provid",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/login",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Welcome back"
+    ],
+    "scrollWidth": 1024,
+    "text": "CineHookBack to homeLoginRegisterWelcome backLogin to continue your booking.EmailPasswordLoginForgot password?orGoogle sign-in is not configured. Please use email and password.Don’",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/register",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Create account"
+    ],
+    "scrollWidth": 1024,
+    "text": "CineHookBack to homeLoginRegisterCreate accountNameEmailPasswordConfirm passwordRegisterorGoogle sign-in is not configured. Please use email and password.Already have an account? L",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/help",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "How can we help?"
+    ],
+    "scrollWidth": 1009,
+    "text": "CINEHOOK SUPPORTHow can we help?A little clarity, before your next movie night.How do I book a movie ticket?+Choose a movie, city, date and show, then select available seats. Sign ",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/help/chat",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Chatbot support is coming soon"
+    ],
+    "scrollWidth": 1024,
+    "text": "← Back to Help & SupportCINEHOOK AI SUPPORTChatbot support is coming soonChatbot integration coming soon. No chatbot or live customer support is connected yet.Browse help topics",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine"
+    ],
+    "scrollWidth": 1009,
+    "text": "ON THE BIG SCREENDeadpool & Wolverineenglish • 128 min • 2024action / comedyDeadpool joins Wolverine on a journey that threatens their worlds.डेडपूल और वूल्वरिन एक ऐसे सफर पर निकलत",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Choose your seats"
+    ],
+    "scrollWidth": 1009,
+    "text": "Choose your seatsDeadpool & Wolverine • CineHook Demo Delhi • 10 Oct 2026, 06:30 pm ISTChoose up to 10 seats. The 5-minute hold starts only after Continue succeeds.SCREENAA1A2A3A4A",
+    "width": 1009
+  },
+  {
+    "viewport": 1440,
+    "route": "/",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 1425,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/movies",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 1,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine",
+      "Devara: Part 1",
+      "Inside Out 2",
+      "Kalki 2898 AD",
+      "Salaar: Part 1 – Ceasefire",
+      "Stree 2"
+    ],
+    "scrollWidth": 1425,
+    "text": "Deadpool & WolverineBook NowDevara: Part 1Book NowInside Out 2Book NowKalki 2898 ADBook NowSalaar: Part 1 – CeasefireBook NowStree 2Book Now←→▷THE BIG SCREEN AWAITSFind your next s",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/stream",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Stories beyond the big screen"
+    ],
+    "scrollWidth": 1425,
+    "text": "CINEHOOK · streamStories beyond the big screenAn original collection of story concepts, curated for the curious.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples,",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/events",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Music. Moments. Memories."
+    ],
+    "scrollWidth": 1425,
+    "text": "CINEHOOK · eventsMusic. Moments. Memories.Discover a world of live experiencesDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Book",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/sports",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Live sports. Feel the action."
+    ],
+    "scrollWidth": 1425,
+    "text": "CINEHOOK · sportsLive sports. Feel the action.The thrill of the game, all in one placeDEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public even",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/activities",
+    "brokenLoadedImages": [],
+    "cards": 6,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Unlock new experiences"
+    ],
+    "scrollWidth": 1425,
+    "text": "CINEHOOK · activitiesUnlock new experiencesLearn. Play. Explore. Together.DEVELOPMENT DEMO COLLECTIONThese are fictional development examples, not announced public events. Booking ",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/offers",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "More cinema.More possibilities."
+    ],
+    "scrollWidth": 1440,
+    "text": "CineHook offersMore cinema.More possibilities.Explore offers when they become available.AllUPINet BankingCredit CardDebit CardNo offers availablePromotions are not currently provid",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/login",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Welcome back"
+    ],
+    "scrollWidth": 1440,
+    "text": "CineHookBack to homeLoginRegisterWelcome backLogin to continue your booking.EmailPasswordLoginForgot password?orGoogle sign-in is not configured. Please use email and password.Don’",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/register",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Create account"
+    ],
+    "scrollWidth": 1440,
+    "text": "CineHookBack to homeLoginRegisterCreate accountNameEmailPasswordConfirm passwordRegisterorGoogle sign-in is not configured. Please use email and password.Already have an account? L",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/help",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "How can we help?"
+    ],
+    "scrollWidth": 1425,
+    "text": "CINEHOOK SUPPORTHow can we help?A little clarity, before your next movie night.How do I book a movie ticket?+Choose a movie, city, date and show, then select available seats. Sign ",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/help/chat",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 0,
+    "headings": [
+      "Chatbot support is coming soon"
+    ],
+    "scrollWidth": 1440,
+    "text": "← Back to Help & SupportCINEHOOK AI SUPPORTChatbot support is coming soonChatbot integration coming soon. No chatbot or live customer support is connected yet.Browse help topics",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Deadpool & Wolverine"
+    ],
+    "scrollWidth": 1425,
+    "text": "ON THE BIG SCREENDeadpool & Wolverineenglish • 128 min • 2024action / comedyDeadpool joins Wolverine on a journey that threatens their worlds.डेडपूल और वूल्वरिन एक ऐसे सफर पर निकलत",
+    "width": 1425
+  },
+  {
+    "viewport": 1440,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "brokenLoadedImages": [],
+    "cards": 0,
+    "footer": 0,
+    "header": 1,
+    "headings": [
+      "Choose your seats"
+    ],
+    "scrollWidth": 1425,
+    "text": "Choose your seatsDeadpool & Wolverine • CineHook Demo Delhi • 10 Oct 2026, 06:30 pm ISTChoose up to 10 seats. The 5-minute hold starts only after Continue succeeds.SCREENAA1A2A3A4A",
+    "width": 1425
+  }
+]

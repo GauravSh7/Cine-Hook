@@ -1,0 +1,387 @@
+[
+  {
+    "viewport": 320,
+    "route": "/account",
+    "footer": 0,
+    "scrollWidth": 305,
+    "title": "Account Info",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/wishlist",
+    "footer": 0,
+    "scrollWidth": 320,
+    "title": "My Wishlist",
+    "width": 320
+  },
+  {
+    "viewport": 320,
+    "route": "/bookings",
+    "footer": 0,
+    "scrollWidth": 305,
+    "title": "My Bookings",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/bookings/af06a1da-9772-4f2b-af7b-1f832779929f",
+    "footer": 0,
+    "scrollWidth": 305,
+    "title": "Refund complete",
+    "width": 305
+  },
+  {
+    "viewport": 390,
+    "route": "/account",
+    "footer": 0,
+    "scrollWidth": 375,
+    "title": "Account Info",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/wishlist",
+    "footer": 0,
+    "scrollWidth": 390,
+    "title": "My Wishlist",
+    "width": 390
+  },
+  {
+    "viewport": 390,
+    "route": "/bookings",
+    "footer": 0,
+    "scrollWidth": 375,
+    "title": "My Bookings",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/bookings/af06a1da-9772-4f2b-af7b-1f832779929f",
+    "footer": 0,
+    "scrollWidth": 375,
+    "title": "Refund complete",
+    "width": 375
+  },
+  {
+    "viewport": 768,
+    "route": "/account",
+    "footer": 0,
+    "scrollWidth": 768,
+    "title": "Account Info",
+    "width": 768
+  },
+  {
+    "viewport": 768,
+    "route": "/wishlist",
+    "footer": 0,
+    "scrollWidth": 768,
+    "title": "My Wishlist",
+    "width": 768
+  },
+  {
+    "viewport": 768,
+    "route": "/bookings",
+    "footer": 0,
+    "scrollWidth": 753,
+    "title": "My Bookings",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/bookings/af06a1da-9772-4f2b-af7b-1f832779929f",
+    "footer": 0,
+    "scrollWidth": 753,
+    "title": "Refund complete",
+    "width": 753
+  },
+  {
+    "viewport": 1024,
+    "route": "/account",
+    "footer": 0,
+    "scrollWidth": 1024,
+    "title": "Account Info",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/wishlist",
+    "footer": 0,
+    "scrollWidth": 1024,
+    "title": "My Wishlist",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/bookings",
+    "footer": 0,
+    "scrollWidth": 1009,
+    "title": "My Bookings",
+    "width": 1009
+  },
+  {
+    "viewport": 1024,
+    "route": "/bookings/af06a1da-9772-4f2b-af7b-1f832779929f",
+    "footer": 0,
+    "scrollWidth": 1009,
+    "title": "Refund complete",
+    "width": 1009
+  },
+  {
+    "viewport": 1440,
+    "route": "/account",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "title": "Account Info",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/wishlist",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "title": "My Wishlist",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/bookings",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "title": "My Bookings",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/bookings/af06a1da-9772-4f2b-af7b-1f832779929f",
+    "footer": 0,
+    "scrollWidth": 1425,
+    "title": "Refund complete",
+    "width": 1425
+  },
+  {
+    "viewport": 320,
+    "route": "/admin",
+    "footer": 0,
+    "scrollWidth": 305,
+    "tableRows": 3,
+    "title": "Dashboard",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/admin/movies",
+    "footer": 0,
+    "scrollWidth": 305,
+    "tableRows": 5,
+    "title": "Movies",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/admin/shows",
+    "footer": 0,
+    "scrollWidth": 305,
+    "tableRows": 2,
+    "title": "Shows",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/admin/bookings",
+    "footer": 0,
+    "scrollWidth": 305,
+    "tableRows": 3,
+    "title": "Bookings",
+    "width": 305
+  },
+  {
+    "viewport": 320,
+    "route": "/admin/payments",
+    "footer": 0,
+    "scrollWidth": 305,
+    "tableRows": 2,
+    "title": "Payments",
+    "width": 305
+  },
+  {
+    "viewport": 390,
+    "route": "/admin",
+    "footer": 0,
+    "scrollWidth": 375,
+    "tableRows": 3,
+    "title": "Dashboard",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/admin/movies",
+    "footer": 0,
+    "scrollWidth": 375,
+    "tableRows": 5,
+    "title": "Movies",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/admin/shows",
+    "footer": 0,
+    "scrollWidth": 375,
+    "tableRows": 2,
+    "title": "Shows",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/admin/bookings",
+    "footer": 0,
+    "scrollWidth": 375,
+    "tableRows": 3,
+    "title": "Bookings",
+    "width": 375
+  },
+  {
+    "viewport": 390,
+    "route": "/admin/payments",
+    "footer": 0,
+    "scrollWidth": 375,
+    "tableRows": 2,
+    "title": "Payments",
+    "width": 375
+  },
+  {
+    "viewport": 768,
+    "route": "/admin",
+    "footer": 0,
+    "scrollWidth": 753,
+    "tableRows": 3,
+    "title": "Dashboard",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/admin/movies",
+    "footer": 0,
+    "scrollWidth": 753,
+    "tableRows": 5,
+    "title": "Movies",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/admin/shows",
+    "footer": 0,
+    "scrollWidth": 753,
+    "tableRows": 2,
+    "title": "Shows",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/admin/bookings",
+    "footer": 0,
+    "scrollWidth": 753,
+    "tableRows": 3,
+    "title": "Bookings",
+    "width": 753
+  },
+  {
+    "viewport": 768,
+    "route": "/admin/payments",
+    "footer": 0,
+    "scrollWidth": 753,
+    "tableRows": 2,
+    "title": "Payments",
+    "width": 753
+  },
+  {
+    "viewport": 1024,
+    "route": "/admin",
+    "footer": 0,
+    "scrollWidth": 1024,
+    "tableRows": 3,
+    "title": "Dashboard",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/admin/movies",
+    "footer": 0,
+    "scrollWidth": 1024,
+    "tableRows": 5,
+    "title": "Movies",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/admin/shows",
+    "footer": 0,
+    "scrollWidth": 1024,
+    "tableRows": 2,
+    "title": "Shows",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/admin/bookings",
+    "footer": 0,
+    "scrollWidth": 1024,
+    "tableRows": 3,
+    "title": "Bookings",
+    "width": 1024
+  },
+  {
+    "viewport": 1024,
+    "route": "/admin/payments",
+    "footer": 0,
+    "scrollWidth": 1024,
+    "tableRows": 2,
+    "title": "Payments",
+    "width": 1024
+  },
+  {
+    "viewport": 1440,
+    "route": "/admin",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "tableRows": 3,
+    "title": "Dashboard",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/admin/movies",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "tableRows": 5,
+    "title": "Movies",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/admin/shows",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "tableRows": 2,
+    "title": "Shows",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/admin/bookings",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "tableRows": 3,
+    "title": "Bookings",
+    "width": 1440
+  },
+  {
+    "viewport": 1440,
+    "route": "/admin/payments",
+    "footer": 0,
+    "scrollWidth": 1440,
+    "tableRows": 2,
+    "title": "Payments",
+    "width": 1440
+  }
+]

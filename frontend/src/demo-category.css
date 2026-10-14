@@ -1,0 +1,24 @@
+.demo-catalogue .category-hero { border: 1px solid #33424f; border-radius: 18px; overflow: hidden; position: relative; }
+.demo-catalogue .hero-copy { max-width: 680px; background: linear-gradient(90deg,#060c16ec,#060c1677,transparent); }
+.demo-catalogue h1 { font-size: clamp(30px,4vw,54px); line-height: 1.1; font-weight: 750; }
+.demo-badge { display: inline-block; background: #09202fcc; border: 1px solid #79b1cf5e; color: #c6e0f1; padding: 6px 10px; border-radius: 6px; font-size: 10px; letter-spacing: .1em; margin-top: 16px; }
+.demo-notice { color: #aebed0; line-height: 1.7; font-size: 13px; border-left: 2px solid #ff344e; padding-left: 14px; margin: 22px 0 30px; }
+.demo-search { display: flex; align-items: end; gap: 12px; margin: 18px 0 30px; }
+.demo-search label { display: grid; gap: 8px; flex: 1; font-size: 13px; color: #bac8d7; }
+.demo-listing-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; }
+.demo-listing { overflow: hidden; min-width: 0; border-radius: 12px; background: linear-gradient(155deg,#122332,#09121a); }
+.demo-listing-art { aspect-ratio: 16/9; position: relative; overflow: hidden; }
+.demo-listing-art img { width: 100%; height: 100%; object-fit: cover; }
+.demo-listing-art .demo-badge { position: absolute; left: 14px; top: 0; }
+.demo-variation-1 .demo-listing-art img { filter: hue-rotate(24deg); }
+.demo-variation-2 .demo-listing-art img { filter: hue-rotate(-20deg); }
+.demo-listing-copy { padding: 22px; }
+.demo-listing h2 { font-size: 21px; font-weight: 650; margin: 10px 0 12px; }
+.demo-listing p { font-size: 13px; line-height: 1.7; }
+.demo-listing dl { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 7px 14px; font-size: 12px; margin: 18px 0; }
+.demo-listing dt { color: #8d9dae; }
+.demo-listing dd { color: #d2dfec; overflow-wrap: anywhere; }
+.demo-disabled { border-top: 1px solid #ffffff15; padding-top: 14px; color: #f3b5bf; }
+.demo-listing small { display: block; line-height: 1.5; font-size: 10px; margin-top: 12px; }
+@media (max-width: 1024px) { .demo-listing-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; } }
+@media (max-width: 600px) { .demo-listing-grid { grid-template-columns: minmax(0,1fr); } .demo-search { flex-wrap: wrap; } .demo-search label { flex-basis: 100%; } .demo-search .btn, .demo-search .secondary { flex: 1; } }

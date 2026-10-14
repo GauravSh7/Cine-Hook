@@ -1,0 +1,326 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {test} from 'node:test';
+import pg from 'pg';
+import {createClient} from 'redis';
+import {createPrisma} from '../dist/lib/prisma.js';
+import {createBooking} from '../dist/modules/booking/create-booking.js';
+import {createEventBooking} from '../dist/modules/event-booking/create-event-booking.js';
+import {PricingRepository} from '../dist/modules/pricing/pricing.repository.js';
+import {PaymentRepository} from '../dist/modules/payments/payment.repository.js';
+import {PaymentService} from '../dist/modules/payments/payment.service.js';
+import {RefundRepository} from '../dist/modules/refunds/refund.repository.js';
+import {RefundService} from '../dist/modules/refunds/refund.service.js';
+import {seedEvents} from '../prisma/event-seed-core.ts';
+import request from 'supertest';
+import {createApp} from '../dist/app.js';
+import {createCatalog} from '../dist/modules/catalog/create-catalog.js';
+import {AuthService} from '../dist/modules/auth/auth.service.js';
+import {UserRepository} from '../dist/modules/auth/user.repository.js';
+import {TokenService} from '../dist/modules/auth/token.service.js';
+import {HealthService} from '../dist/modules/health/health.service.js';
+import {PricingService} from '../dist/modules/pricing/pricing.service.js';
+import {cinemaSimulationPolicy,eventSimulationPolicy} from '../dist/modules/pricing/cinema-simulation.js';
+import {RazorpayProvider} from '../dist/modules/payments/razorpay.provider.js';
+import {createControlledProviderTransport} from './ui-browser-server.mjs';
+const url=process.env.PRICING_TEST_DATABASE_URL;
+test('durable checkout pricing with PostgreSQL, Redis, capture and refund evidence',{skip:!url,timeout:90000},async t=>{
+  const target=new URL(url);assert.match(target.pathname,/^\/cinehook_event_seed_pricing_[a-z0-9_]+_test$/);assert.equal(target.port,'55438');assert.equal(target.hostname,'127.0.0.1');
+  const pool=new pg.Pool({connectionString:url}),prisma=createPrisma(url);
+  const redis=createClient({url:process.env.SEAT_LOCK_TEST_REDIS_URL});redis.on('error',()=>{});await redis.connect();
+  const bookings=createBooking(prisma,redis).bookings,events=createEventBooking(prisma,redis);
+  const pricing=new PricingRepository(prisma),payments=new PaymentRepository(prisma),refunds=new RefundRepository(prisma);
+  const city=randomUUID(),theatre=randomUUID(),screen=randomUUID(),movie=randomUUID(),show=randomUUID();
+  const seats=Array.from({length:90},()=>randomUUID());let cursor=0;
+  const eventHolds=[];
+  const policy={classification:'CINEMA',effectiveFrom:'2025-09-22T00:00:00+05:30',effectiveTo:null,verified:true,source:'Test fixture of Notification 15/2025-CTR; no actual issuer',supplierState:'29',supplyState:'29',feeRateBps:1800,feeSource:'Isolated business-service fee fixture',feeVerified:true,feeSupplierState:'29',feeSupplyState:'29'};
+  const transaction=async(work)=>{const c=await pool.connect();try{await c.query('BEGIN');await work(c);await c.query('COMMIT');}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}};
+  const user=async()=>{const id=randomUUID();await pool.query('INSERT INTO users(id,name,email,updated_at) VALUES($1,$2,$3,now())',[id,'Pricing fixture',`${id}@example.invalid`]);return id;};
+  const booking=async owner=>bookings.create(owner,{showId:show,seatIds:seats.slice(cursor,cursor+=2)});
+  const rejectCode=(fn,code)=>assert.rejects(fn,e=>e.code===code);
+  try{
+    await pool.query('INSERT INTO cities(id,name,state,updated_at) VALUES($1,$2,$3,now())',[city,city,'Test']);
+    await pool.query('INSERT INTO theatres(id,name,address,city_id,updated_at) VALUES($1,$2,$3,$4,now())',[theatre,'Pricing theatre','Fixture',city]);
+    await pool.query('INSERT INTO screens(id,name,capacity,theatre_id,updated_at) VALUES($1,$2,90,$3,now())',[screen,'Pricing screen',theatre]);
+    await pool.query("INSERT INTO movies(id,title,description,duration_minutes,release_date,language,genres,updated_at) VALUES($1,$2,'Fixture',100,'2026-01-01','english',ARRAY['drama'],now())",[movie,movie]);
+    await transaction(async c=>{for(const [i,seat] of seats.entries())await c.query("INSERT INTO seats(id,screen_id,row_name,seat_number,seat_type) VALUES($1,$2,'A',$3,'REGULAR')",[seat,screen,i+1]);
+      await c.query("INSERT INTO shows(id,movie_id,screen_id,starts_at,ends_at,updated_at) VALUES($1,$2,$3,'2099-01-01T10:00:00Z','2099-01-01T11:40:00Z',now())",[show,movie,screen]);
+      await c.query("INSERT INTO show_seat_prices(show_id,seat_type,price_paise) VALUES($1,'REGULAR',20000)",[show]);});
+    await prisma.pricingTaxPolicy.create({data:{key:`movie:${theatre}:2025-09-22`,verifiedBy:'Isolated integration fixture only',settings:policy}});
+    const owner=await user(),first=await booking(owner),second=await booking(owner);
+    await t.test('quote/coupon HTTP requires ownership and rejects browser amounts and stacked payloads',async()=>{
+      const tokens=new TokenService({secret:'pricing-integration-only-not-a-secret-1234567890',expiresInSeconds:600});
+      const app=createApp({frontendOrigin:'http://localhost:5173',auth:{tokens,service:new AuthService(new UserRepository(prisma),tokens)},catalog:createCatalog(prisma),healthService:new HealthService({checkDatabase:async()=>{},checkRedis:async()=>{}}),pricing:new PricingService(pricing,bookings)});
+      const token=tokens.sign({userId:owner,role:'USER'}),otherToken=tokens.sign({userId:await user(),role:'USER'});
+      assert.equal((await request(app).get(`/api/bookings/${first.id}/quote`)).status,401);
+      assert.equal((await request(app).get(`/api/bookings/${first.id}/quote`).set('Authorization',`Bearer ${otherToken}`)).status,404);
+      assert.equal((await request(app).put(`/api/bookings/${first.id}/coupon`).set('Authorization',`Bearer ${token}`).send({code:'SAVE10',finalPaise:1,taxRate:0})).status,400);
+      assert.equal((await request(app).put(`/api/bookings/${first.id}/coupon`).set('Authorization',`Bearer ${token}`).send({code:['FIRST50','SAVE10']})).status,400);
+      const response=await request(app).put(`/api/bookings/${first.id}/coupon`).set('Authorization',`Bearer ${token}`).send({code:'save10'});assert.equal(response.status,200);assert.equal(response.body.data.totalPaise,36826);
+      await pricing.readOrChange(owner,first.id,null);
+    });
+    let winner;
+    await t.test('concurrent FIRST50 permits exactly one durable reservation',async()=>{
+      const results=await Promise.allSettled([first,second].map(b=>pricing.readOrChange(owner,b.id,'FIRST50')));
+      assert.equal(results.filter(r=>r.status==='fulfilled').length,1);winner=results[0].status==='fulfilled'?first:second;
+      assert.equal(results.find(r=>r.status==='fulfilled').value.totalPaise,20826);
+    });
+    await t.test('invalid, stacked and client-controlled coupon amounts are not accepted',async()=>{
+      await rejectCode(()=>pricing.readOrChange(owner,winner.id,'INVALID'),'COUPON_INVALID');
+      await rejectCode(()=>pricing.readOrChange(owner,winner.id,'FIRST50,SAVE10'),'COUPON_INVALID');
+      await rejectCode(()=>pricing.readOrChange(randomUUID(),winner.id),'NOT_FOUND');
+    });
+    await t.test('coupon removal and replacement before freezing retain ticket snapshots',async()=>{
+      assert.equal((await pricing.readOrChange(owner,winner.id,null)).totalPaise,40826);
+      assert.equal((await pricing.readOrChange(owner,winner.id,'SAVE10')).totalPaise,36826);
+      assert.equal((await prisma.booking.findUnique({where:{id:winner.id}})).totalPaise,40000n);
+      await pricing.readOrChange(owner,winner.id,'FIRST50');
+    });
+    let paid,providerOrder;
+    await t.test('payment order uses the stored final payable and freezes changes',async()=>{
+      const provider={keyId:'rzp_test_fixture',findOrder:async()=>null,createOrder:async input=>{assert.equal(input.amountPaise,20826);providerOrder={...input,id:`order_${randomUUID()}`,status:'created'};return providerOrder;}};
+      const service=new PaymentService(payments,bookings,provider);
+      const result=await service.order(owner,winner.id);assert.equal(result.order.amountPaise,20826);
+      paid=await payments.findByBooking(winner.id);
+      await rejectCode(()=>pricing.readOrChange(owner,winner.id,'SAVE10'),'QUOTE_FROZEN');
+      await assert.rejects(()=>pool.query("UPDATE booking_pricing_quotes SET final_paise=final_paise+1 WHERE booking_id=$1",[winner.id]));
+      await assert.rejects(()=>pool.query('UPDATE payments SET amount_paise=40000 WHERE id=$1',[paid.id]));
+      await assert.rejects(()=>pool.query('UPDATE first_booking_offers SET reserved_booking_id=$2 WHERE user_id=$1',[owner,second.id===winner.id?first.id:second.id]));
+      await rejectCode(()=>payments.reserve(owner,second.id===winner.id?first.id:second.id),'FIRST_OFFER_UNAVAILABLE');
+    });
+    let capture;
+    await t.test('capture/webhook replay is idempotent and consumes eligibility',async()=>{
+      capture={id:`pay_${randomUUID()}`,orderId:providerOrder.id,amountPaise:20826,currency:'INR',status:'captured',captured:true};
+      const event={id:`evt_${randomUUID()}`,digest:'a'.repeat(64),type:'payment.captured',providerPaymentId:capture.id};
+      await Promise.all([payments.recordEvidence(paid.id,capture,event),payments.recordEvidence(paid.id,capture,event)]);
+      assert.equal(await prisma.paymentEvidence.count({where:{paymentId:paid.id}}),1);
+      await payments.finalize(paid.id,async scope=>{const b=await bookings.confirm(winner.id,scope);return{confirmed:b.status==='CONFIRMED',reason:b.failureCode};});
+      const another=await booking(owner);await rejectCode(()=>pricing.readOrChange(owner,another.id,'FIRST50'),'FIRST_OFFER_UNAVAILABLE');
+      assert.ok((await prisma.firstBookingOffer.findUnique({where:{userId:owner}})).consumedAt);
+    });
+    await t.test('paid cancellation releases allocations and refunds exact final amount; refund does not restore offer',async()=>{
+      await refunds.cancel(owner,winner.id,scope=>bookings.cancel(owner,winner.id,scope));
+      assert.equal(await prisma.confirmedSeat.count({where:{bookingSeat:{bookingId:winner.id}}}),0);
+      await refunds.cancel(owner,winner.id,scope=>bookings.cancel(owner,winner.id,scope));
+      const pending=await refunds.pending(paid.id);assert.equal(pending.length,1);assert.equal(pending[0].amountPaise,20826n);
+      const attempt=await refunds.attempt(pending[0].id);
+      await refunds.record(pending[0].id,attempt.id,{id:`rfnd_${randomUUID()}`,paymentId:capture.id,amountPaise:20826,currency:'INR',receipt:attempt.receipt,status:'processed'});
+      assert.equal((await payments.findByBooking(winner.id)).status,'REFUNDED');
+      const another=await booking(owner);await rejectCode(()=>pricing.readOrChange(owner,another.id,'FIRST50'),'FIRST_OFFER_UNAVAILABLE');
+    });
+    await t.test('definitively unpaid cancellation immediately releases reservation',async()=>{
+      const u=await user(),a=await booking(u),b=await booking(u);await pricing.readOrChange(u,a.id,'FIRST50');await refunds.cancelCheckout(u,a.id,scope=>bookings.cancel(u,a.id,scope));
+      assert.equal((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).reservedBookingId,null);
+      assert.equal((await prisma.booking.findUnique({where:{id:a.id}})).status,'CANCELLED');
+      assert.equal((await pricing.readOrChange(u,b.id,'FIRST50')).discountPaise,20000);
+    });
+    await t.test('unknown provider response keeps reservation; late capture on cancelled booking consumes offer',async()=>{
+      const u=await user(),a=await booking(u),b=await booking(u);await pricing.readOrChange(u,a.id,'FIRST50');const p=await payments.reserve(u,a.id);
+      await bookings.releaseHold(u,a.id);await rejectCode(()=>pricing.readOrChange(u,b.id,'FIRST50'),'FIRST_OFFER_UNAVAILABLE');
+      const order={id:`order_${randomUUID()}`,receipt:p.receipt,amountPaise:Number(p.amountPaise),currency:'INR',status:'created'};await payments.attachOrder(p.id,order);
+      await payments.recordEvidence(p.id,{id:`pay_${randomUUID()}`,orderId:order.id,amountPaise:Number(p.amountPaise),currency:'INR',status:'captured',captured:true});
+      // Prove safety at the interruption boundary, before any later finalize,
+      // refund prepare, webhook replay or provider HTTP can repair the state.
+      assert.equal((await payments.findByBooking(a.id)).status,'REFUND_PENDING');
+      assert.equal((await refunds.pending(p.id))[0].amountPaise,20826n);
+      await payments.finalize(p.id,async scope=>{const observed=await bookings.confirm(a.id,scope);return{confirmed:false,reason:observed.failureCode??'HOLD_EXPIRED'};});
+      await refunds.prepare(p.id);assert.equal((await refunds.pending(p.id))[0].amountPaise,20826n);
+      assert.ok((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).consumedAt);
+      assert.equal((await prisma.booking.findUnique({where:{id:a.id}})).status,'CANCELLED');
+    });
+    await t.test('historical version-zero booking retains original amount without new fees',async()=>{
+      const u=await user(),id=randomUUID(),seat=seats[cursor++];await transaction(async c=>{await c.query('INSERT INTO bookings(id,user_id,show_id,total_paise,expires_at,updated_at) VALUES($1,$2,$3,20000,now()+interval \'5 minutes\',now())',[id,u,show]);await c.query('INSERT INTO booking_seats(id,booking_id,show_id,seat_id,price) VALUES($1,$2,$3,$4,20000)',[randomUUID(),id,show,seat]);});
+      assert.equal((await pricing.readOrChange(u,id)).version,0);assert.equal((await payments.reserve(u,id)).amountPaise,20000n);
+      await rejectCode(()=>pricing.readOrChange(u,id,'FIRST50'),'LEGACY_QUOTE');
+    });
+    await t.test('duplicate checkout cancellation is owner-only, frees seats and cannot confirm',async()=>{
+      const u=await user(),a=await booking(u);
+      const tokens=new TokenService({secret:'cancellation-integration-only-123456789012345',expiresInSeconds:600});
+      const app=createApp({frontendOrigin:'http://localhost:5173',auth:{tokens,service:new AuthService(new UserRepository(prisma),tokens)},catalog:createCatalog(prisma),booking:{bookings},healthService:new HealthService({checkDatabase:async()=>{},checkRedis:async()=>{}}),payments:{payments:new PaymentService(payments,bookings,{keyId:''}),refunds:new RefundService(refunds,bookings,{keyId:''})}});
+      assert.equal((await request(app).post(`/api/bookings/${a.id}/checkout/cancel`).send({})).status,401);
+      const token=tokens.sign({userId:u,role:'USER'});
+      assert.equal((await request(app).post(`/api/bookings/${a.id}/checkout/cancel`).set('Authorization',`Bearer ${token}`).send({refundAmount:0})).status,400);
+      const foreign=await user();
+      await rejectCode(()=>refunds.cancelCheckout(foreign,a.id,scope=>bookings.cancel(foreign,a.id,scope)),'NOT_FOUND');
+      await Promise.all([1,2].map(()=>refunds.cancelCheckout(u,a.id,scope=>bookings.cancel(u,a.id,scope))));
+      const response=await request(app).post(`/api/bookings/${a.id}/checkout/cancel`).set('Authorization',`Bearer ${token}`).send({});
+      assert.equal(response.status,200);assert.equal(response.body.data.booking.status,'CANCELLED');
+      const legacy=await request(app).delete(`/api/bookings/${a.id}/hold`).set('Authorization',`Bearer ${token}`);
+      assert.equal(legacy.status,200);assert.equal(legacy.body.data.booking.status,'CANCELLED');assert.equal(legacy.body.data.booking.seats.length,2);
+      assert.equal((await bookings.getById(u,a.id)).status,'CANCELLED');
+      const availability=await bookings.availability(show);
+      for(const seat of a.seats)assert.equal(availability.seats.find(s=>s.id===seat.seatId).availability,'AVAILABLE');
+      await rejectCode(()=>bookings.confirm(a.id),'CHECKOUT_CANCELLED');
+      const rebooked=await bookings.create(await user(),{showId:show,seatIds:a.seats.map(s=>s.seatId)});
+      await bookings.releaseHold((await prisma.booking.findUnique({where:{id:rebooked.id}})).userId,rebooked.id);
+    });
+    await t.test('cancellation between capture and fulfillment atomically creates one full refund obligation',async()=>{
+      const u=await user(),a=await booking(u);await pricing.readOrChange(u,a.id,'FIRST50');
+      const p=await payments.reserve(u,a.id),order={id:`order_${randomUUID()}`,receipt:p.receipt,amountPaise:Number(p.amountPaise),currency:'INR',status:'created'};
+      await payments.attachOrder(p.id,order);
+      const evidence={id:`pay_${randomUUID()}`,orderId:order.id,amountPaise:order.amountPaise,currency:'INR',status:'captured',captured:true};
+      await payments.recordEvidence(p.id,evidence);
+      const tokens=new TokenService({secret:'legacy-cancellation-integration-only-123456789012345',expiresInSeconds:600});
+      const app=createApp({frontendOrigin:'http://localhost:5173',auth:{tokens,service:new AuthService(new UserRepository(prisma),tokens)},catalog:createCatalog(prisma),booking:{bookings},healthService:new HealthService({checkDatabase:async()=>{},checkRedis:async()=>{}}),payments:{payments:new PaymentService(payments,bookings,{keyId:''}),refunds:new RefundService(refunds,bookings,{keyId:''})}});
+      const legacy=await request(app).delete(`/api/bookings/${a.id}/hold`).set('Authorization',`Bearer ${tokens.sign({userId:u,role:'USER'})}`);
+      assert.equal(legacy.status,200);assert.equal(legacy.body.data.booking.status,'CANCELLED');
+      await refunds.cancelCheckout(u,a.id,scope=>bookings.cancel(u,a.id,scope));
+      const result=await payments.findByBooking(a.id);
+      assert.equal(result.status,'REFUND_PENDING');assert.ok(result.bookingFinalizedAt);
+      assert.equal((await refunds.pending(p.id)).length,1);
+      assert.equal((await refunds.pending(p.id))[0].amountPaise,20826n);
+      await payments.recordEvidence(p.id,evidence);await refunds.prepare(p.id);
+      assert.equal((await refunds.pending(p.id)).length,1);
+      assert.ok((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).consumedAt);
+      assert.equal(await prisma.confirmedSeat.count({where:{bookingSeat:{bookingId:a.id}}}),0);
+    });
+    await t.test('confirmation racing checkout cancellation ends cancelled with full compensation',async()=>{
+      const u=await user(),a=await booking(u),p=await payments.reserve(u,a.id);
+      const order={id:`order_${randomUUID()}`,receipt:p.receipt,amountPaise:Number(p.amountPaise),currency:'INR',status:'created'};await payments.attachOrder(p.id,order);
+      await payments.recordEvidence(p.id,{id:`pay_${randomUUID()}`,orderId:order.id,amountPaise:order.amountPaise,currency:'INR',status:'captured',captured:true});
+      await Promise.all([refunds.cancelCheckout(u,a.id,scope=>bookings.cancel(u,a.id,scope)),payments.finalize(p.id,async scope=>{const result=await bookings.confirm(a.id,scope);return{confirmed:result.status==='CONFIRMED',reason:result.failureCode}})]);
+      assert.equal((await prisma.booking.findUnique({where:{id:a.id}})).status,'CANCELLED');
+      assert.equal((await refunds.pending(p.id)).length,1);assert.equal(await prisma.confirmedSeat.count({where:{bookingSeat:{bookingId:a.id}}}),0);
+    });
+    await t.test('missing/overlapping tax configuration blocks checkout',async()=>{
+      const u=await user(),a=await booking(u);await prisma.pricingTaxPolicy.update({where:{key:`movie:${theatre}:2025-09-22`},data:{settings:{...policy,verified:false}}});
+      await rejectCode(()=>payments.reserve(u,a.id),'TAX_CONFIGURATION_REQUIRED');
+      await prisma.pricingTaxPolicy.update({where:{key:`movie:${theatre}:2025-09-22`},data:{settings:policy}});
+    });
+    await t.test('simulation allows guarded previews and controlled signed payments, never normal provider orders',async()=>{
+      const key=`movie:${theatre}:2025-09-22`;
+      await prisma.pricingTaxPolicy.update({where:{key},data:{settings:cinemaSimulationPolicy}});
+      const u=await user(),a=await booking(u);
+      const controlledPricing=new PricingRepository(prisma,'controlled-test');
+      const q=await controlledPricing.readOrChange(u,a.id,'FIRST50');
+      assert.equal(q.simulated,true);assert.equal(q.totalPaise,20826);assert.equal(q.admissionTaxPaise,3050);
+      await rejectCode(()=>pricing.readOrChange(u,a.id),'TAX_CONFIGURATION_REQUIRED');
+      await rejectCode(()=>new PricingRepository(prisma,'development-preview').readOrChange(u,a.id),'TAX_CONFIGURATION_REQUIRED');
+      await rejectCode(()=>payments.reserve(u,a.id),'TAX_CONFIGURATION_REQUIRED');
+      assert.equal(await prisma.payment.count({where:{bookingId:a.id}}),0);
+      const credentials={keyId:'rzp_test_LOCAL_UI_ONLY',keySecret:'isolated-tax-calculation-test-secret',webhookSecret:'isolated-tax-webhook-test-secret-12345'};
+      let tick=Date.now();const transport=createControlledProviderTransport(credentials,()=>tick);
+      const provider=new RazorpayProvider(credentials,transport.transport);
+      const controlledPayments=new PaymentRepository(prisma,controlledPricing);
+      const coordinator=new RefundService(refunds,bookings,provider);
+      const service=new PaymentService(controlledPayments,bookings,provider,coordinator);
+      const order=await service.order(u,a.id);assert.equal(order.order.amountPaise,20826);
+      // Existing reservations are not an escape hatch around provenance checks.
+      await rejectCode(()=>new PaymentService(payments,bookings,provider).order(u,a.id),'SIMULATED_PREVIEW_ONLY');
+      const outsideQuote=await pricing.readOrChange(u,a.id);
+      assert.equal(outsideQuote.paymentAllowed,false);assert.equal(outsideQuote.totalPaise,20826);
+      await rejectCode(()=>service.verify(u,{bookingId:a.id,...transport.capture(order.order.id),razorpay_signature:'0'.repeat(64)}),'INVALID_PAYMENT_SIGNATURE');
+      await service.verify(u,{bookingId:a.id,...transport.capture(order.order.id)});
+      await service.verify(u,{bookingId:a.id,...transport.capture(order.order.id)});
+      assert.equal((await bookings.getById(u,a.id)).status,'CONFIRMED');
+      assert.equal(await prisma.paymentEvidence.count({where:{payment:{bookingId:a.id}}}),1);
+      await coordinator.cancel(u,a.id);await coordinator.cancel(u,a.id);
+      assert.equal((await bookings.getById(u,a.id)).status,'CANCELLED');
+      tick+=3000;const payment=await controlledPayments.findByBooking(a.id);await coordinator.reconcile(payment.id);
+      assert.equal((await controlledPayments.findByBooking(a.id)).status,'REFUNDED');
+      assert.equal((await prisma.refund.findMany({where:{paymentId:payment.id}})).length,1);
+      assert.equal((await prisma.refund.findFirst({where:{paymentId:payment.id}})).amountPaise,20826n);
+      assert.equal((await controlledPricing.readOrChange(u,a.id)).totalPaise,20826);
+      const another=await booking(u);
+      await rejectCode(()=>controlledPricing.readOrChange(u,another.id,'FIRST50'),'FIRST_OFFER_UNAVAILABLE');
+      await prisma.pricingTaxPolicy.update({where:{key},data:{settings:policy}});
+    });
+    await t.test('new simulated bookings waive the fee and refund only the frozen captured total',async()=>{
+      const key=`movie:${theatre}:2025-09-22`,activation=new Date(Date.now()-1000).toISOString();
+      await prisma.pricingTaxPolicy.update({where:{key},data:{settings:{...cinemaSimulationPolicy,feeWaiverStartsAt:activation}}});
+      const u=await user(),a=await booking(u),controlledPricing=new PricingRepository(prisma,'controlled-test');
+      const quote=await controlledPricing.readOrChange(u,a.id,'FIRST50');
+      assert.equal(quote.feeWaived,true);assert.equal(quote.feePaise,0);assert.equal(quote.feeTaxPaise,0);assert.equal(quote.totalPaise,20000);
+      const credentials={keyId:'rzp_test_LOCAL_UI_ONLY',keySecret:'isolated-tax-calculation-test-secret',webhookSecret:'isolated-tax-webhook-test-secret-12345'};
+      let tick=Date.now();const transport=createControlledProviderTransport(credentials,()=>tick),provider=new RazorpayProvider(credentials,transport.transport);
+      const repository=new PaymentRepository(prisma,controlledPricing),coordinator=new RefundService(refunds,bookings,provider),service=new PaymentService(repository,bookings,provider,coordinator);
+      const order=await service.order(u,a.id);assert.equal(order.order.amountPaise,20000);
+      await prisma.pricingTaxPolicy.update({where:{key},data:{settings:policy}});
+      assert.equal((await controlledPricing.readOrChange(u,a.id)).totalPaise,20000);
+      await service.verify(u,{bookingId:a.id,...transport.capture(order.order.id)});
+      await coordinator.cancel(u,a.id);tick+=3000;const payment=await repository.findByBooking(a.id);await coordinator.reconcile(payment.id);
+      assert.equal((await repository.findByBooking(a.id)).status,'REFUNDED');
+      assert.equal((await prisma.refund.findFirst({where:{paymentId:payment.id}})).amountPaise,20000n);
+    });
+    await t.test('FIRST50 reservation is shared across movie and event targets',async()=>{
+      for(const [name,state] of [['New Delhi','Delhi'],['Mumbai','Maharashtra'],['Bengaluru','Karnataka']]) await prisma.city.create({data:{name,state,countryCode:'IN'}});
+      await seedEvents(prisma,{expectedDatabase:target.pathname.slice(1),expectedPort:55438});
+      const u=await user(),a=await booking(u);
+      const event=await prisma.event.findFirst({where:{kind:'EVENTS'}}),session=await prisma.eventSession.findFirst({where:{eventId:event.id,startsAt:{gt:new Date()}},orderBy:{startsAt:'desc'}}),seat=await prisma.eventSeat.findFirst({where:{section:{venueId:session.venueId}}});
+      await prisma.pricingTaxPolicy.create({data:{key:`event:${event.id}:2025-09-22`,verifiedBy:'Isolated fixture only',settings:{...policy,classification:'ADMISSION_18'}}});
+      const b=await events.create(u,{eventSessionId:session.id,seatIds:[seat.id]});
+      eventHolds.push({owner:u,id:b.id});
+      const result=await Promise.allSettled([pricing.readOrChange(u,a.id,'FIRST50'),pricing.readOrChange(u,b.id,'FIRST50')]);assert.equal(result.filter(r=>r.status==='fulfilled').length,1);
+    });
+    await t.test('event SAVE10 order, confirmation and full cancellation use the same persisted final total',async()=>{
+      const u=await user(),session=await prisma.eventSession.findFirst({where:{event:{kind:'EVENTS'}},orderBy:{startsAt:'desc'}}),seat=await prisma.eventSeat.findMany({where:{section:{venueId:session.venueId}},take:2});
+      const b=await events.create(u,{eventSessionId:session.id,seatIds:[seat[1].id]});eventHolds.push({owner:u,id:b.id});
+      const q=await pricing.readOrChange(u,b.id,'SAVE10');
+      const service=new PaymentService(payments,events,{keyId:'rzp_test_fixture',findOrder:async()=>null,createOrder:async input=>({...input,id:`order_${randomUUID()}`,status:'created'})});
+      const result=await service.order(u,b.id);assert.equal(result.order.amountPaise,q.totalPaise);
+      const p=await payments.findByBooking(b.id),source=`pay_${randomUUID()}`;
+      await payments.recordEvidence(p.id,{id:source,orderId:result.order.id,amountPaise:q.totalPaise,currency:'INR',status:'captured',captured:true});
+      await payments.finalize(p.id,async scope=>{const confirmed=await events.confirm(b.id,scope);return{confirmed:confirmed.status==='CONFIRMED',reason:confirmed.failureCode};});
+      await refunds.cancel(u,b.id,scope=>events.cancel(u,b.id,scope));
+      assert.equal(await prisma.eventConfirmedSeat.count({where:{bookingSeat:{bookingId:b.id}}}),0);
+      assert.equal((await refunds.pending(p.id))[0].amountPaise,BigInt(q.totalPaise));
+      eventHolds.pop();
+    });
+    await t.test('unpaid event checkout cancellation returns seats and FIRST50 to its owner',async()=>{
+      const u=await user(),session=await prisma.eventSession.findFirst({where:{event:{kind:'EVENTS'}},orderBy:{startsAt:'desc'}});
+      const seat=await prisma.eventSeat.findFirst({where:{section:{venueId:session.venueId}},orderBy:{id:'desc'}});
+      const b=await events.create(u,{eventSessionId:session.id,seatIds:[seat.id]});
+      await pricing.readOrChange(u,b.id,'FIRST50');
+      await refunds.cancelCheckout(u,b.id,scope=>events.cancel(u,b.id,scope));
+      assert.equal((await prisma.booking.findUnique({where:{id:b.id}})).status,'CANCELLED');
+      assert.equal((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).reservedBookingId,null);
+      assert.equal((await events.availability(session.id)).seats.find(s=>s.id===seat.id).availability,'AVAILABLE');
+    });
+    await t.test('approved non-movie simulation shares coupon bill capture and exact refunds',async()=>{
+      const session=await prisma.eventSession.findFirst({where:{event:{kind:'ACTIVITIES'}},orderBy:{startsAt:'desc'}});
+      const seat=await prisma.eventSeat.findFirst({where:{section:{venueId:session.venueId}}}),u=await user();
+      await prisma.pricingTaxPolicy.create({data:{key:`event:${session.eventId}:simulation-v1`,verifiedBy:'Isolated approved assumption',settings:{...eventSimulationPolicy,feeWaiverStartsAt:new Date(Date.now()-1000).toISOString()}}});
+      const b=await events.create(u,{eventSessionId:session.id,seatIds:[seat.id]});
+      const pricing=new PricingRepository(prisma,'controlled-test'),q=await pricing.readOrChange(u,b.id,'FIRST50');
+      assert.equal(q.simulated,true);assert.equal(q.discountPaise,Math.round(q.subtotalPaise/2));assert.equal(q.feePaise,0);assert.equal(q.tickets[0].rateBps,1800);
+      const credentials={keyId:'rzp_test_LOCAL_UI_ONLY',keySecret:'isolated-event-test-secret',webhookSecret:'isolated-event-webhook-secret-123456'};
+      let tick=Date.now();const transport=createControlledProviderTransport(credentials,()=>tick),provider=new RazorpayProvider(credentials,transport.transport);
+      const repository=new PaymentRepository(prisma,pricing),coordinator=new RefundService(refunds,events,provider),service=new PaymentService(repository,events,provider,coordinator);
+      const order=await service.order(u,b.id);assert.equal(order.order.amountPaise,q.totalPaise);await service.verify(u,{bookingId:b.id,...transport.capture(order.order.id)});
+      assert.equal((await events.getById(u,b.id)).status,'CONFIRMED');await coordinator.cancel(u,b.id);tick+=3000;const payment=await repository.findByBooking(b.id);await coordinator.reconcile(payment.id);
+      assert.equal((await prisma.refund.findFirst({where:{paymentId:payment.id}})).amountPaise,BigInt(q.totalPaise));
+      const next=await events.create(u,{eventSessionId:session.id,seatIds:[seat.id]});eventHolds.push({owner:u,id:next.id});await rejectCode(()=>pricing.readOrChange(u,next.id,'FIRST50'),'FIRST_OFFER_UNAVAILABLE');
+    });
+    await t.test('verified payment failure cancels inventory without reviving on delayed capture',async()=>{
+      const u=await user(),b=await booking(u);await pricing.readOrChange(u,b.id,'FIRST50');
+      const provider={keyId:'rzp_test_fixture',findOrder:async()=>null,createOrder:async input=>({...input,id:`order_${randomUUID()}`,status:'created'})};
+      const coordinator=new RefundService(refunds,bookings,provider),service=new PaymentService(payments,bookings,provider,coordinator);
+      const order=await service.order(u,b.id),payment=await payments.findByBooking(b.id),id=`pay_${randomUUID()}`;
+      provider.parseWebhook=()=>({eventType:'payment.failed',digest:'f'.repeat(64),payment:{id,orderId:order.order.id,amountPaise:order.order.amountPaise,currency:'INR',status:'failed',captured:false}});
+      await service.webhook(Buffer.from('{}'),'signature-verified-by-fixture',`evt_${randomUUID()}`);
+      assert.equal((await bookings.getById(u,b.id)).status,'CANCELLED');assert.equal((await bookings.availability(show)).seats.find(s=>s.id===b.seats[0].seatId).availability,'AVAILABLE');
+      // A failed attempt cannot prove that its entire order will never capture.
+      assert.equal((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).reservedBookingId,b.id);
+      await payments.recordEvidence(payment.id,{id,orderId:order.order.id,amountPaise:order.order.amountPaise,currency:'INR',status:'captured',captured:true});
+      assert.equal((await prisma.booking.findUnique({where:{id:b.id}})).status,'CANCELLED');assert.equal((await payments.findByBooking(b.id)).status,'REFUND_PENDING');
+      assert.equal((await prisma.refund.findFirst({where:{paymentId:payment.id}})).amountPaise,BigInt(order.order.amountPaise));
+    });
+    await t.test('expired unpaid checkout becomes cancelled while historical seats stay intact',async()=>{
+      const u=await user(),id=randomUUID();
+      await transaction(async c=>{
+        await c.query("INSERT INTO bookings(id,user_id,show_id,status,total_paise,expires_at,created_at,updated_at,pricing_version) VALUES($1,$2,$3,'PENDING',20000,clock_timestamp()-interval '1 second',clock_timestamp()-interval '5 minutes',clock_timestamp(),1)",[id,u,show]);
+        await c.query('INSERT INTO booking_seats(id,booking_id,show_id,seat_id,price) VALUES($1,$2,$3,$4,20000)',[randomUUID(),id,show,seats[85]]);
+      });
+      assert.equal((await bookings.getById(u,id)).status,'CANCELLED');
+      assert.equal((await prisma.bookingSeat.findFirst({where:{bookingId:id}})).price,20000);
+    });
+    await t.test('cinema simulation never enables event admission even if misconfigured',async()=>{
+      const u=await user(),session=await prisma.eventSession.findFirst({where:{event:{kind:'EVENTS'}},orderBy:{startsAt:'desc'}});
+      const seat=await prisma.eventSeat.findFirst({where:{section:{venueId:session.venueId}},orderBy:{id:'desc'}});
+      const b=await events.create(u,{eventSessionId:session.id,seatIds:[seat.id]});eventHolds.push({owner:u,id:b.id});
+      await prisma.pricingTaxPolicy.update({where:{key:`event:${session.eventId}:2025-09-22`},data:{settings:cinemaSimulationPolicy}});
+      await rejectCode(()=>new PricingRepository(prisma,'controlled-test').readOrChange(u,b.id),'TAX_CONFIGURATION_REQUIRED');
+      assert.equal(await prisma.bookingPricingQuote.count({where:{bookingId:b.id}}),0);
+    });
+  }finally{for(const hold of eventHolds)await events.releaseHold(hold.owner,hold.id);await redis.quit();await prisma.$disconnect();await pool.end();}
+});

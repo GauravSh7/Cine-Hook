@@ -1,0 +1,76 @@
+/* Compact discovery cards; financial and inventory behavior is unchanged. */
+.movies-home .movie-card .poster { aspect-ratio: 2 / 2.6; overflow: hidden; }
+.movies-home .card-copy { padding: 10px 14px 8px; }
+.movies-home .card-copy p { margin-top: 3px; }
+.movies-home .card-action { padding-bottom: 8px; }
+.movies-home .card-action .btn, .movies-home .card-action .secondary { min-height: 44px; }
+.movie-card .poster img, .demo-listing-art img { transition: transform 230ms ease; }
+.movie-card:hover .poster img, .movie-card:focus-within .poster img,
+.demo-listing:hover .demo-listing-art img, .demo-listing:focus-within .demo-listing-art img { transform: scale(1.035); }
+.demo-listing { transition: transform 180ms ease, border-color 180ms ease; }
+.demo-listing:hover, .demo-listing:focus-within { transform: translateY(-3px); border-color: #ff526670; box-shadow: 0 8px 24px #0003; }
+.listing-card-link { display: block; height: 100%; }
+.listing-card-link:focus-visible { outline: 2px solid #ff5266; outline-offset: -3px; border-radius: 12px; }
+.listing-card-action { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: #ff7585; font-size: 13px; font-weight: 650; }
+.location-pin { width: 20px; height: 22px; flex: 0 0 20px; color: #ff344e; }
+.location-button { display: flex; align-items: center; gap: 8px; }
+.location-button > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.city-option .location-pin { margin-inline: auto; }
+.graphical-footer .footer-content { padding-block: 28px; gap: 16px; }
+.graphical-footer .footer-content .footer-graphic { display: flex; flex-direction: column; gap: 9px; text-align: center; padding: 8px; }
+.graphical-footer .footer-content section { align-items: start; }
+.graphical-footer .footer-graphic > svg { width: 50px; height: 50px; }
+.graphical-footer .brand-mark svg { width: 56px; height: 56px; }
+.footer-graphic > span { font-size: 12px; line-height: 1.5; }
+.category-nav a { position: relative; border-color: transparent; }
+.category-nav a[aria-current="page"] { border-color: transparent; }
+.category-nav a::after { content: ''; height: 2px; background: #ff344e; position: absolute; bottom: -2px; left: 0; right: 0; transform: scaleX(0); transform-origin: center; transition: transform 180ms ease; }
+.category-nav a:hover::after, .category-nav a:focus-visible::after, .category-nav a[aria-current="page"]::after { transform: scaleX(1); }
+.account-menu { opacity: 0; transform: translateY(-6px); visibility: hidden; pointer-events: none; transition: opacity 150ms ease, transform 150ms ease, visibility 0s 150ms; }
+.account-menu-open { opacity: 1; transform: translateY(0); visibility: visible; pointer-events: auto; transition-delay: 0s; }
+.btn, .secondary, .icon-button, .danger-outline { transition: transform 130ms ease, background-color 130ms ease, border-color 130ms ease; }
+.btn:active:not(:disabled), .secondary:active:not(:disabled), .icon-button:active:not(:disabled), .danger-outline:active:not(:disabled) { transform: scale(.98); }
+#main-content > main, .focused-layout main { animation: page-enter 180ms ease-out both; }
+.dialog-backdrop { animation: backdrop-enter 150ms ease-out both; }
+.location-dialog, .trailer-dialog { animation: dialog-enter 180ms ease-out both; }
+.seat { transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, transform 100ms ease; }
+.seat:not(:disabled):hover { transform: translateY(-2px); }
+.seat:active:not(:disabled) { transform: scale(.95); }
+.seat-selected { animation: seat-select 130ms ease-out; }
+.listing-back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 20px; color: #c7d1de; font-size: 14px; }
+.listing-feature { overflow: hidden; }
+.listing-detail-art { aspect-ratio: 16 / 5; position: relative; overflow: hidden; background: #0b1928; }
+.listing-detail-art > img { width: 100%; height: 100%; object-fit: cover; }
+.listing-feature-copy { padding: 32px; }
+.listing-feature h1 { font-size: clamp(26px, 3.8vw, 48px); font-weight: 750; line-height: 1.15; margin: 12px 0 22px; overflow-wrap: anywhere; }
+.listing-description { color: #d5deea; line-height: 1.8; max-width: 900px; }
+.listing-facts dl { display: flex; flex-wrap: wrap; gap: 22px 40px; margin: 28px 0; }
+.listing-facts dt { color: #8fa5b9; font-size: 12px; margin-bottom: 6px; }
+.listing-facts dd { font-size: 14px; line-height: 1.6; }
+.listing-city { display: inline-flex; gap: 8px; align-items: center; text-align: left; max-width: 100%; }
+.listing-city-note { font-size: 13px; margin-top: 12px; line-height: 1.7; }
+.listing-availability { margin-top: 22px; padding: 28px 32px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+.listing-availability h2 { font-size: 20px; font-weight: 650; margin-bottom: 10px; }
+.listing-availability p { max-width: 700px; line-height: 1.8; font-size: 14px; }
+.listing-availability .btn { flex-shrink: 0; }
+@keyframes page-enter { from { opacity: .45; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-enter { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
+@keyframes seat-select { 50% { transform: scale(1.055); } }
+@media (max-width: 600px) {
+  .movies-home .card-copy { padding: 9px 10px 6px; }
+  .movies-home .card-action { padding: 0 10px 8px; }
+  .location-button { min-height: 44px; }
+  .graphical-footer .footer-content { padding-inline: 12px; gap: 4px; }
+  .footer-graphic > span { font-size: 10px; max-width: 105px; }
+  .listing-detail-art { aspect-ratio: 16 / 9; }
+  .listing-feature-copy { padding: 22px 18px; }
+  .listing-facts dl { gap: 18px 24px; }
+  .listing-availability { padding: 24px 18px; flex-direction: column; align-items: stretch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .movie-card:hover, .movie-card:focus-within, .demo-listing:hover, .demo-listing:focus-within, .footer-graphic:hover, .footer-graphic:focus-visible,
+  .movie-card:hover .poster img, .movie-card:focus-within .poster img, .demo-listing:hover .demo-listing-art img, .demo-listing:focus-within .demo-listing-art img,
+  .btn:active, .secondary:active, .icon-button:active, .danger-outline:active, .seat:not(:disabled):hover, .seat:active { transform: none; }
+}

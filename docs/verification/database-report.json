@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-10",
+  "databases": {
+    "cinehook": {
+      "identity": {
+        "database": "cinehook",
+        "schema": "public",
+        "port": 5432
+      },
+      "counts": {
+        "users": 0,
+        "movies": 0,
+        "cities": 0,
+        "theatres": 0,
+        "screens": 0,
+        "seats": 0,
+        "shows": 0,
+        "show_seat_prices": 0,
+        "bookings": 0,
+        "booking_seats": 0,
+        "confirmed_seats": 0,
+        "payments": 0,
+        "payment_reconciliations": 0,
+        "refunds": 0,
+        "refund_attempts": 0,
+        "migrations": 6
+      },
+      "originalEmptyTableFingerprintsUnchanged": true
+    },
+    "cinehook_dev": {
+      "identity": {
+        "database": "cinehook_dev",
+        "schema": "public",
+        "port": 5432
+      },
+      "counts": {
+        "users": 1,
+        "movies": 30,
+        "cities": 3,
+        "theatres": 3,
+        "screens": 6,
+        "seats": 288,
+        "shows": 102,
+        "show_seat_prices": 306,
+        "bookings": 0,
+        "booking_seats": 0,
+        "confirmed_seats": 0,
+        "payments": 0,
+        "payment_reconciliations": 0,
+        "refunds": 0,
+        "refund_attempts": 0,
+        "movie_wishlists": 0,
+        "migrations": 8
+      },
+      "futureShows": 96,
+      "moviesWithoutUpcomingShows": 0
+    }
+  },
+  "configurationPresence": {
+    "GOOGLE_CLIENT_ID": false,
+    "TMDB_READ_ACCESS_TOKEN": false,
+    "RAZORPAY_KEY_ID": false,
+    "CLOUDINARY_CLOUD_NAME": false
+  }
+}

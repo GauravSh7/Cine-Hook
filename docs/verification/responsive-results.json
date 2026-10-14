@@ -1,0 +1,842 @@
+[
+  {
+    "categories": true,
+    "client": 305,
+    "footer": true,
+    "route": "/",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 305,
+    "footer": false,
+    "route": "/stream",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 305,
+    "footer": false,
+    "route": "/events",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 305,
+    "footer": false,
+    "route": "/sports",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 305,
+    "footer": false,
+    "route": "/activities",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 320,
+    "footer": false,
+    "route": "/offers",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 320,
+    "footer": false,
+    "route": "/login",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 305,
+    "footer": false,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": true,
+    "route": "/",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/stream",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/events",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/sports",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/activities",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 390,
+    "footer": false,
+    "route": "/offers",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 390,
+    "footer": false,
+    "route": "/login",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 753,
+    "footer": true,
+    "route": "/",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 753,
+    "footer": false,
+    "route": "/stream",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 753,
+    "footer": false,
+    "route": "/events",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 753,
+    "footer": false,
+    "route": "/sports",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 753,
+    "footer": false,
+    "route": "/activities",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 768,
+    "footer": false,
+    "route": "/offers",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 768,
+    "footer": false,
+    "route": "/login",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 753,
+    "footer": false,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 1009,
+    "footer": true,
+    "route": "/",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1009,
+    "footer": false,
+    "route": "/stream",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1009,
+    "footer": false,
+    "route": "/events",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1009,
+    "footer": false,
+    "route": "/sports",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1009,
+    "footer": false,
+    "route": "/activities",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1024,
+    "footer": false,
+    "route": "/offers",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1024,
+    "footer": false,
+    "route": "/login",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1009,
+    "footer": false,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1009,
+    "footer": false,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 1425,
+    "footer": true,
+    "route": "/",
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 1425,
+    "footer": false,
+    "route": "/stream",
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 1425,
+    "footer": false,
+    "route": "/events",
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 1425,
+    "footer": false,
+    "route": "/sports",
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 1425,
+    "footer": false,
+    "route": "/activities",
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 1440,
+    "footer": false,
+    "route": "/offers",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 1440,
+    "footer": false,
+    "route": "/login",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 1425,
+    "footer": false,
+    "route": "/movies/c34ea850-b2a1-5525-a487-76a12520f8f1",
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 1425,
+    "footer": false,
+    "route": "/shows/21cab05c-e08b-5961-a6d5-abc5c9104d60/seats",
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/account",
+    "scroll": 375,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/wishlist",
+    "scroll": 375,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings",
+    "scroll": 375,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 390,
+    "footer": false,
+    "route": "/help",
+    "scroll": 390,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings/29370ee4-6d66-45ab-a4cc-9756d66e0e14",
+    "scroll": 375,
+    "width": 320
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/account",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/wishlist",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 390,
+    "footer": false,
+    "route": "/help",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings/29370ee4-6d66-45ab-a4cc-9756d66e0e14",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/account",
+    "scroll": 375,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/wishlist",
+    "scroll": 375,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings",
+    "scroll": 375,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 390,
+    "footer": false,
+    "route": "/help",
+    "scroll": 390,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings/29370ee4-6d66-45ab-a4cc-9756d66e0e14",
+    "scroll": 375,
+    "width": 768
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/account",
+    "scroll": 375,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/wishlist",
+    "scroll": 375,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings",
+    "scroll": 375,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 390,
+    "footer": false,
+    "route": "/help",
+    "scroll": 390,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings/29370ee4-6d66-45ab-a4cc-9756d66e0e14",
+    "scroll": 375,
+    "width": 1024
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/account",
+    "scroll": 375,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/wishlist",
+    "scroll": 375,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings",
+    "scroll": 375,
+    "width": 1440
+  },
+  {
+    "categories": true,
+    "client": 390,
+    "footer": false,
+    "route": "/help",
+    "scroll": 390,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings/29370ee4-6d66-45ab-a4cc-9756d66e0e14",
+    "scroll": 375,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/admin",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/admin/movies",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/admin/shows",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/admin/bookings",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/admin/payments",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/admin",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/admin/movies",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/admin/shows",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/admin/bookings",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/admin/payments",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/admin",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/admin/movies",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/admin/shows",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/admin/bookings",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/admin/payments",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 1009,
+    "footer": false,
+    "route": "/admin",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1024,
+    "footer": false,
+    "route": "/admin/movies",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1024,
+    "footer": false,
+    "route": "/admin/shows",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1009,
+    "footer": false,
+    "route": "/admin/bookings",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1009,
+    "footer": false,
+    "route": "/admin/payments",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1440,
+    "footer": false,
+    "route": "/admin",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 1440,
+    "footer": false,
+    "route": "/admin/movies",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 1440,
+    "footer": false,
+    "route": "/admin/shows",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 1440,
+    "footer": false,
+    "route": "/admin/bookings",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 1440,
+    "footer": false,
+    "route": "/admin/payments",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f/checkout",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f/checkout",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f/checkout",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 1024,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f/checkout",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1440,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f/checkout",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "categories": false,
+    "client": 305,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f",
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "categories": false,
+    "client": 375,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f",
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "categories": false,
+    "client": 753,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f",
+    "scroll": 753,
+    "width": 768
+  },
+  {
+    "categories": false,
+    "client": 1009,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f",
+    "scroll": 1009,
+    "width": 1024
+  },
+  {
+    "categories": false,
+    "client": 1425,
+    "footer": false,
+    "route": "/bookings/88172f2c-8578-49df-8b9d-d68c8f8cd44f",
+    "scroll": 1425,
+    "width": 1440
+  }
+]

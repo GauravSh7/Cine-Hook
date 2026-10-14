@@ -1,0 +1,13 @@
+.offer-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+.promo-card { position:relative; overflow:clip; padding:32px; border-radius:22px; border:1px solid #fb516577; background:linear-gradient(125deg,#561c39,#141522 65%); box-shadow:0 0 30px #f9254820; transition:transform .25s,border-color .25s; }
+.promo-card:hover { transform:translateY(-4px); border-color:#ff697c; }
+.promo-1 { background:linear-gradient(125deg,#26336b,#141522 65%); border-color:#7d83ff88; box-shadow:0 0 30px #7869ff20; }
+.promo-number { position:absolute; right:-12px; bottom:-40px; font-weight:900; font-size:160px; opacity:.09; pointer-events:none; }
+.promo-code { padding:12px 20px; border:1px dashed #ff7083; border-radius:10px; letter-spacing:3px; color:#ffe0e5; }
+.offer-hero-percent { font-size:110px; font-weight:900; color:#ffadba; transform:rotate(-12deg); }
+.coupon-panel { padding:20px 0; border-bottom:1px solid #ffffff15; }
+.bill-accordion { border:1px solid #ffffff22; border-radius:14px; padding:0 16px; background:#ffffff03; }
+.bill-body { padding:8px 0 20px; animation:bill-open .2s ease-out; }
+@keyframes bill-open { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+@media(max-width:640px) { .offer-grid { grid-template-columns:1fr; } .promo-card { padding:24px; } .offer-hero-percent { font-size:70px; } }
+@media(prefers-reduced-motion:reduce) { .promo-card { transition:none; } .bill-body { animation:none; } }

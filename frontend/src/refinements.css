@@ -1,0 +1,47 @@
+.auth-focused { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+.card-rating { font-size: 11px; color: #efd29b; margin-top: 10px; }
+.card-art-label { color: #8fa5b9; font-size: 10px; }
+.hindi-synopsis { line-height: 1.8; margin-top: 10px; }
+.movie-trailer-action { margin-top: 20px; }
+.media-credits { margin-block: 14px 30px; padding: 16px 22px; font-size: 12px; color: #a6b8c9; line-height: 1.8; }
+.media-credits summary { cursor: pointer; color: #dce5ed; font-weight: 600; }
+.media-credits p { margin-top: 12px; }
+.tmdb-logo { width: 100px; height: auto; margin-top: 15px; }
+.trailer-dialog { width: min(960px,100%); max-height: 90dvh; overflow: auto; padding: 22px; }
+.trailer-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+.trailer-heading h2 { font-size: 18px; font-weight: 650; }
+.trailer-player { aspect-ratio: 16/9; background: #000; }
+.trailer-player iframe { width: 100%; height: 100%; border: 0; }
+.trailer-dialog p { margin-top: 16px; font-size: 12px; line-height: 1.7; }
+.auth-home { width: min(930px,100%); margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.auth-focused .auth-panel { margin-inline: auto; box-shadow: 0 30px 100px #0008; }
+.financial-facts { display: grid; gap: 14px; font-size: 14px; }
+.financial-facts > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; }
+.financial-facts dt { color: #9eafbd; }
+.financial-facts dd { overflow-wrap: anywhere; max-width: 100%; }
+.refund-details li + li { padding-top: 22px; border-top: 1px solid #29303a; }
+.graphical-footer .footer-content { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); max-width: 900px; margin: auto; gap: 24px; padding: 36px 20px; }
+.graphical-footer .footer-content section { display: grid; place-items: center; border: 0; padding: 0; }
+.footer-graphic { min-width: 64px; min-height: 64px; display: flex; align-items: center; justify-content: center; color: #d8e3ed; border-radius: 14px; transition: color .2s, background .2s, transform .2s; }
+.footer-graphic > svg { width: 58px; height: 58px; }
+.footer-graphic:hover, .footer-graphic:focus-visible { color: #ff344e; background: #ff142c12; transform: translateY(-3px); }
+.graphical-footer .brand-mark > span { display: none; }
+.graphical-footer .brand-mark svg { width: 64px; height: 64px; }
+.support-page { max-width: 1000px; padding-block: 60px; }
+.support-page h1 { font-size: clamp(28px,4vw,46px); font-weight: 750; margin: 10px 0; }
+.faq-list { display: grid; gap: 14px; margin-top: 32px; }
+.faq-item h2 button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 20px; text-align: left; padding: 22px; font-weight: 600; }
+.faq-item h2 button span { font-size: 24px; color: #ff5266; }
+.faq-item [aria-labelledby] { padding: 0 22px 24px; line-height: 1.8; color: #bac8d4; }
+.faq-item [hidden] { display: none; }
+.support-chat { padding: 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 28px; background: linear-gradient(115deg,#ff142c16,#102230); }
+.support-chat h2 { font-size: 21px; margin-bottom: 8px; }
+.chatbot-page { min-height: 100dvh; padding: 24px; display: grid; place-items: center; position: relative; background: radial-gradient(ellipse at 50% 40%,#1c3246,#050c13 65%); }
+.chatbot-back { position: absolute; top: 24px; left: 24px; }
+.chatbot-card { max-width: 620px; padding: 110px 10px 60px; text-align: center; }
+.chatbot-card svg { width: 100px; height: 100px; color: #ff5266; margin: 0 auto 26px; filter: drop-shadow(0 0 25px #ff142c40); }
+.chatbot-card h1 { font-size: clamp(26px,4vw,42px); font-weight: 700; margin: 16px 0; }
+.chatbot-card p { line-height: 1.7; }
+.chatbot-card .btn { margin-top: 28px; }
+@media (max-width: 600px) { .auth-home .brand { font-size: 23px; } .auth-home .secondary { font-size: 12px; padding: 10px; } .support-chat { flex-direction: column; align-items: stretch; } .graphical-footer .footer-content { gap: 12px; } }
+@media (prefers-reduced-motion: reduce) { .footer-graphic { transition: none; } }

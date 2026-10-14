@@ -1,0 +1,65 @@
+name: CineHook checks
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cinehook
+          POSTGRES_PASSWORD: cinehook_ci_only
+          POSTGRES_DB: cinehook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cinehook -d cinehook_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
+      AUTH_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
+      BOOKING_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
+      PAYMENTS_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
+      REFUNDS_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
+      SEAT_LOCK_TEST_REDIS_URL: redis://localhost:6379/15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:validate
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:smoke
+      - run: npm run db:deploy
+      - run: npm run test:integration
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build

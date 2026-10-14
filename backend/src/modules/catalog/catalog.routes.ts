@@ -1,0 +1,40 @@
+import { Router } from 'express';
+import { authMiddleware } from '../../middleware/auth.middleware.js';
+import { requireRole } from '../../middleware/require-role.js';
+import { validateBody } from '../../middleware/validate-body.js';
+import { validateRequest } from '../../middleware/validate-request.js';
+import type { AuthService } from '../auth/auth.service.js';
+import type { TokenService } from '../auth/token.service.js';
+import type { CatalogServices } from './catalog.types.js';
+import { MovieController } from './movie.controller.js';
+import { CityController } from './city.controller.js';
+import { TheatreController } from './theatre.controller.js';
+import { ScreenController } from './screen.controller.js';
+import * as schemas from './catalog.validation.js';
+
+export function catalogRoutes(services: CatalogServices, auth: { service: AuthService; tokens: TokenService }) {
+  const router = Router();
+  const movie = new MovieController(services.movies);
+  const city = new CityController(services.cities);
+  const theatre = new TheatreController(services.theatres);
+  const screen = new ScreenController(services.screens);
+  const id = validateRequest(schemas.idSchema, 'params');
+  router.get('/movies', validateRequest(schemas.movieQuerySchema, 'query'), movie.list);
+  router.get('/movies/:id/show-dates', id, validateRequest(schemas.movieCitySchema, 'query'), movie.dates);
+  router.get('/movies/:id', id, validateRequest(schemas.movieCitySchema, 'query'), movie.get);
+  router.get('/cities', validateRequest(schemas.cityQuerySchema, 'query'), city.list);
+  router.get('/theatres', validateRequest(schemas.theatreQuerySchema, 'query'), theatre.list);
+  router.get('/theatres/:id', id, theatre.get);
+  const admin = Router();
+  admin.use(authMiddleware(auth.tokens), requireRole('ADMIN', auth.service));
+  admin.post('/movies', validateBody(schemas.movieCreateSchema), movie.create);
+  admin.patch('/movies/:id', id, validateBody(schemas.moviePatchSchema), movie.update);
+  admin.delete('/movies/:id', id, movie.disable);
+  admin.post('/cities', validateBody(schemas.cityCreateSchema), city.create);
+  admin.post('/theatres', validateBody(schemas.theatreCreateSchema), theatre.create);
+  admin.patch('/theatres/:id', id, validateBody(schemas.theatrePatchSchema), theatre.update);
+  admin.post('/screens', validateBody(schemas.screenCreateSchema), screen.create);
+  admin.patch('/screens/:id', id, validateBody(schemas.screenPatchSchema), screen.update);
+  router.use('/admin', admin);
+  return router;
+}

@@ -1,0 +1,205 @@
+{
+  "date": "2026-10-10",
+  "checks": [
+    {
+      "route": "/admin",
+      "brokenImages": 0,
+      "heading": "Dashboard",
+      "pageWidth": 305,
+      "rows": 5,
+      "width": 320
+    },
+    {
+      "route": "/admin/movies",
+      "brokenImages": 0,
+      "heading": "Movies",
+      "pageWidth": 305,
+      "rows": 5,
+      "width": 320
+    },
+    {
+      "route": "/admin/shows",
+      "brokenImages": 0,
+      "heading": "Shows",
+      "pageWidth": 320,
+      "rows": 2,
+      "width": 320
+    },
+    {
+      "route": "/admin/bookings",
+      "brokenImages": 0,
+      "heading": "Bookings",
+      "pageWidth": 305,
+      "rows": 6,
+      "width": 320
+    },
+    {
+      "route": "/admin/payments",
+      "brokenImages": 0,
+      "heading": "Payments",
+      "pageWidth": 305,
+      "rows": 4,
+      "width": 320
+    },
+    {
+      "route": "/admin",
+      "brokenImages": 0,
+      "heading": "Dashboard",
+      "pageWidth": 375,
+      "rows": 5,
+      "width": 390
+    },
+    {
+      "route": "/admin/movies",
+      "brokenImages": 0,
+      "heading": "Movies",
+      "pageWidth": 375,
+      "rows": 5,
+      "width": 390
+    },
+    {
+      "route": "/admin/shows",
+      "brokenImages": 0,
+      "heading": "Shows",
+      "pageWidth": 390,
+      "rows": 2,
+      "width": 390
+    },
+    {
+      "route": "/admin/bookings",
+      "brokenImages": 0,
+      "heading": "Bookings",
+      "pageWidth": 375,
+      "rows": 6,
+      "width": 390
+    },
+    {
+      "route": "/admin/payments",
+      "brokenImages": 0,
+      "heading": "Payments",
+      "pageWidth": 375,
+      "rows": 4,
+      "width": 390
+    },
+    {
+      "route": "/admin",
+      "brokenImages": 0,
+      "heading": "Dashboard",
+      "pageWidth": 753,
+      "rows": 5,
+      "width": 768
+    },
+    {
+      "route": "/admin/movies",
+      "brokenImages": 0,
+      "heading": "Movies",
+      "pageWidth": 753,
+      "rows": 5,
+      "width": 768
+    },
+    {
+      "route": "/admin/shows",
+      "brokenImages": 0,
+      "heading": "Shows",
+      "pageWidth": 768,
+      "rows": 2,
+      "width": 768
+    },
+    {
+      "route": "/admin/bookings",
+      "brokenImages": 0,
+      "heading": "Bookings",
+      "pageWidth": 753,
+      "rows": 6,
+      "width": 768
+    },
+    {
+      "route": "/admin/payments",
+      "brokenImages": 0,
+      "heading": "Payments",
+      "pageWidth": 753,
+      "rows": 4,
+      "width": 768
+    },
+    {
+      "route": "/admin",
+      "brokenImages": 0,
+      "heading": "Dashboard",
+      "pageWidth": 1024,
+      "rows": 5,
+      "width": 1024
+    },
+    {
+      "route": "/admin/movies",
+      "brokenImages": 0,
+      "heading": "Movies",
+      "pageWidth": 1024,
+      "rows": 5,
+      "width": 1024
+    },
+    {
+      "route": "/admin/shows",
+      "brokenImages": 0,
+      "heading": "Shows",
+      "pageWidth": 1024,
+      "rows": 2,
+      "width": 1024
+    },
+    {
+      "route": "/admin/bookings",
+      "brokenImages": 0,
+      "heading": "Bookings",
+      "pageWidth": 1009,
+      "rows": 6,
+      "width": 1024
+    },
+    {
+      "route": "/admin/payments",
+      "brokenImages": 0,
+      "heading": "Payments",
+      "pageWidth": 1009,
+      "rows": 4,
+      "width": 1024
+    },
+    {
+      "route": "/admin",
+      "brokenImages": 0,
+      "heading": "Dashboard",
+      "pageWidth": 1440,
+      "rows": 5,
+      "width": 1440
+    },
+    {
+      "route": "/admin/movies",
+      "brokenImages": 0,
+      "heading": "Movies",
+      "pageWidth": 1440,
+      "rows": 5,
+      "width": 1440
+    },
+    {
+      "route": "/admin/shows",
+      "brokenImages": 0,
+      "heading": "Shows",
+      "pageWidth": 1440,
+      "rows": 2,
+      "width": 1440
+    },
+    {
+      "route": "/admin/bookings",
+      "brokenImages": 0,
+      "heading": "Bookings",
+      "pageWidth": 1440,
+      "rows": 6,
+      "width": 1440
+    },
+    {
+      "route": "/admin/payments",
+      "brokenImages": 0,
+      "heading": "Payments",
+      "pageWidth": 1440,
+      "rows": 4,
+      "width": 1440
+    }
+  ]
+}
