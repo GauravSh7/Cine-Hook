@@ -9,7 +9,7 @@ import { RefundRepository } from '../refunds/refund.repository.js';
 import { RefundService } from '../refunds/refund.service.js';
 import {PricingRepository} from '../pricing/pricing.repository.js';
 
-export function createPayments(prisma: PrismaClient, bookings: FinancialBookings, options?: RazorpayOptions, pricing?:PricingRepository) {
+export function createPayments(prisma: PrismaClient, bookings: FinancialBookings, options?: RazorpayOptions, pricing?:PricingRepository, newOrdersAllowed = true) {
   pricing?.assertProvider(options?.keyId??'');
   const unavailable = (): never => { throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Payments are not configured.'); };
   const provider: PaymentProvider = options ? new RazorpayProvider(options) : {
@@ -19,5 +19,5 @@ export function createPayments(prisma: PrismaClient, bookings: FinancialBookings
     verifyCheckoutSignature: unavailable, parseWebhook: unavailable,
   };
   const refunds = new RefundService(new RefundRepository(prisma), bookings, provider);
-  return { payments: new PaymentService(new PaymentRepository(prisma,pricing), bookings, provider, refunds), refunds };
+  return { payments: new PaymentService(new PaymentRepository(prisma,pricing), bookings, provider, refunds, newOrdersAllowed), refunds };
 }

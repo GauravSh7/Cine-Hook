@@ -18,7 +18,7 @@ const missing = () => new AppError(404, 'NOT_FOUND', 'Payment not found.');
 
 export class PaymentService {
   constructor(private readonly payments: PaymentStore, private readonly bookings: FinancialBookings, private readonly provider: PaymentProvider,
-    private readonly refunds?: RefundCoordinator) {}
+    private readonly refunds?: RefundCoordinator, private readonly newOrdersAllowed = true) {}
 
   private available() {
     if (!this.provider.keyId) throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Payments are not configured.');
@@ -34,6 +34,7 @@ export class PaymentService {
   }
 
   async order(userId: string, bookingId: string) {
+    if (!this.newOrdersAllowed) throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'New payments are disabled for the staging catalogue.');
     this.available();
     const booking = await this.bookings.payable(userId, bookingId);
     let payment = await this.payments.reserve(userId.toLowerCase(), bookingId.toLowerCase());

@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "rootDir": ".", "noEmit": true },
-  "include": ["prisma/dev-seed*.ts", "prisma/dev-tmdb*.ts", "prisma/dev-complete-movie-shows.ts", "prisma/refinement*.ts", "prisma/event-seed*.ts", "scripts/dev-*.ts", "tests/dev-seed*.ts", "tests/refinement*.ts", "tests/event-seed*.ts"]
+  "include": ["prisma/dev-seed*.ts", "prisma/dev-tmdb*.ts", "prisma/dev-complete-movie-shows.ts", "prisma/refinement*.ts", "prisma/event-seed*.ts", "scripts/dev-*.ts", "scripts/staging-*.ts", "tests/dev-seed*.ts", "tests/refinement*.ts", "tests/event-seed*.ts", "tests/staging-*.ts"]
 }

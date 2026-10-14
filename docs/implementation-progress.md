@@ -1086,3 +1086,124 @@ Neon/Upstash TLS requirements, and interpreting safe error codes.
 Verified: 74 focused unit/HTTP tests, 8 real Redis concurrency/TTL/ownership tests,
 backend typecheck/build, and actual-client local readiness (both dependencies up).
 No migrations or database resets were required; remote deployment remains unverified.
+
+## 14 October — staging catalogue preparation
+
+Live Render and Vercel-proxied catalogue endpoints are healthy but empty;
+routing works for the inspected endpoints. Prepared a separate guarded Neon
+importer with read-only dry-run, exact target/TLS checks, atomic create-only
+application, collision protection and explicit approved-plan hash. Existing
+local seed guards, schema and booking/locking behavior are unchanged.
+
+Initial plan: 3 cities, 30 movies, 3 theatres, 6 screens, 576 cinema seats,
+126 future shows, 9 bookable event listings, 612 event seats, 63 event sessions,
+and 24 browse-only listings. Licensed original movie artwork is used; staging
+inventory is labeled and new payments are blocked by backend staging mode.
+
+Verified: 93 focused backend tests, 34 frontend tests, real PostgreSQL graph/API
+integration with rollback, typechecks/builds, frontend lint and Prisma validation.
+**Neon imported counts remain zero.** Cloud dry-run requires private staging
+configuration; deployment and explicit write approval remain pending. No commit,
+push, reset or deployment. See [staging import guide](staging-catalogue-import.md).
+
+## 14 October — hosted parity and Google diagnosis
+
+Read-only local audit supersedes the initial static import plan: 77 movies,
+6,998 lookup cities, 8 screens and 576 cinema seats; 710 show records (644 future
+at audit time), 81 event sessions (45 future), 24 browse listings. All 77 movies
+have Hindi descriptions, 69 have TMDB ratings, and none have stored trailer IDs.
+Complete parity import is not yet prepared; media publication rights must be
+reviewed rather than silently replacing existing artwork.
+
+Actual hosted browser Google error: origin is not allowed for the configured
+client ID. Owner must authorize the Vercel origin in that OAuth Web client's
+Google Cloud settings. Vercel challenge/cookie delivery and backend invalid-token
+rejection work. No successful personal sign-in is claimed. Fresh focused tests:
+74 backend and 11 frontend passed. Neon dry-run safely stopped for absent private
+staging configuration. No data writes or payment enabling. See
+[hosted parity checkpoint](hosted-parity-checkpoint.md) for setup and remaining gates.
+
+Subsequent owner setup: private staging target checks now pass. Successful
+read-only Neon preview verified all 15 migrations and empty catalogue tables;
+zero records imported. A 30-second connection limit succeeded where 10 seconds
+failed. The preview hash still describes only the smaller static fixture and
+must not be approved as full parity. Google provider button renders after the
+owner's origin update, but real account selection/login remains unverified.
+
+## 14 October — full local-catalogue parity importer and verified Neon dry-run
+
+Replaced the CLI's static 30-film fixture with an allowlisted read-only snapshot
+of the actual local catalogue. New source/shape/parity/media modules preserve
+all 77 movies and enriched fields, 6,998 cities, original IDs and exact layouts.
+The source .env is parsed independently and cannot override the private Neon
+target. Query batches are bounded for the full city directory. Snapshot and
+preview artifacts are ignored by Git and contain no users or financial records.
+
+Successful read-only Neon preview: all 15 migrations verified, target catalogue
+empty. Planned: 77 movies, 6,998 cities, 3 theatres, 8 screens, 576 cinema seats,
+644 future shows with 1,932 prices, 9 bookable events, 9 venues, 30 sections,
+612 event seats, 45 future event sessions with 135 prices, 24 browse cards,
+3 performers and 6 participants. Explicit exclusions: 66 past movie shows and
+36 past event sessions with their prices. No dates shifted; zero Neon writes.
+
+Metadata/layout checks include field differences and per-model/seat-layout
+hashes, not counts alone. Retained 77 English/Hindi descriptions, 69 stored
+TMDB scores, all poster/backdrop URLs and original tier prices. Source has no
+stored trailers; none invented. A frozen expired snapshot is refused. Apply
+checks exact approved hash, metadata drift, media review, deployed payment guard,
+SQL constraints and post-insert parity inside the atomic transaction.
+
+Media blockers: 24 Wikimedia HTTP 429 responses, 14 network/time-out checks,
+missing approved TMDB logo (HTML fallback), and 30 per-file Wikimedia rights
+reviews. URLs were preserved, not silently replaced. Apply remains blocked.
+No simulated tax policies were imported or hosted payment guards relaxed.
+
+Actual Chrome Google investigation found blocked legacy popups, including
+after the owner changed the per-site setting. Prepared the official FedCM
+button opt-in while preserving user account selection, signed nonce/CSRF,
+backend verification and JWT flow. Not deployed; personal login/session/logout
+still unverified.
+
+Verification: 84 focused backend tests, full 77-film/6,998-city PostgreSQL import
+with real constraints/exact readback/idempotence/private-count preservation and
+full rollback, backend typecheck/build and Prisma validation; 12 focused frontend
+tests, frontend typecheck/build/lint. No reset, commit, push, deployment or live
+payments. See [full-parity preview](staging-parity-preview.md) and ignored detailed
+`backend/.staging-parity/preview.json` for every category and asset result.
+
+Independent read-only safety review: no critical/important code findings.
+External media rights, hosted authentication acceptance and deployment/import
+readiness were not asserted by that review and remain outstanding.
+
+## 15 October — approved media patch, hosted Google acceptance, final read-only preview
+
+Applied only to the frozen staging preview: exact provider matches for all 77
+movies; all 69 original rating tuples preserved; 30 Wikipedia poster/backdrop
+pairs replaced with matched TMDB assets after individual non-free-file review;
+62 official YouTube trailers confirmed available. Eight unrated films and 15
+unsupported trailer gaps remain empty. No local database content was changed.
+Detailed reasons and all 30 per-file records: staging-media-review.md.
+
+Latest read-only Neon preview at 02:15:37 IST: all 15 migrations verified;
+186/186 media checks passed, zero remaining Wikimedia URLs. Same full catalogue
+counts/layouts/prices as the previous parity checkpoint; excludes 66 expired
+movie shows and 36 event sessions without date rewriting. Hash:
+`713fc4a935ff392646c4251c7bdc0d1abda1322f083abd6deec3ad2908c9d0fe`.
+Zero Neon catalogue writes. Preview/details: staging-parity-preview.md.
+
+Explicitly approved frontend-only publication: 4d12b6b (FedCM/official TMDB logo)
+and 194e948 (mount attribution on movie details), both pushed to main. Vercel
+serves the FedCM option, media credits and real SVG. Actual hosted Google login,
+session persistence after reload and logout succeeded. New registration with a
+second identity remains unverified; no claim of that acceptance result.
+
+Verification: 40 focused backend content/media/import/payment-guard tests,
+backend typecheck/build; full patched-source local PostgreSQL import, exact
+metadata/layout/price readback, repeat-zero, private-count preservation and
+unconditional rollback; 15 frontend Google/media tests, typecheck/build/lint.
+No unrelated full-suite sweep. Original inventory, concurrency and financial
+behavior remain intact. No secrets committed. Backend/importer are not deployed.
+
+Awaiting explicit approval to deploy staging/payment safeguards + staging notice
+and import this reviewed catalogue. Populated hosted rendering can only be
+verified after that import. No tax policies imported and no live payments enabled.

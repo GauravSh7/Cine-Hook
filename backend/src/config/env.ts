@@ -7,6 +7,7 @@ const optionalCredential = (minimum: number) => z.preprocess(value =>
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DEV_RAZORPAY_TEST_CHECKOUT: z.enum(['true','false']).default('false'),
+  STAGING_CATALOGUE_MODE: z.enum(['true','false']).default('false'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: connectionUrl(['postgres:', 'postgresql:']),
   REDIS_URL: connectionUrl(['redis:', 'rediss:']),
@@ -52,6 +53,7 @@ export function parseConfig(env: Record<string, string | undefined>) {
   return {
     nodeEnv: result.data.NODE_ENV,
     devRazorpayTestCheckout: result.data.DEV_RAZORPAY_TEST_CHECKOUT==='true',
+    stagingCatalogueMode: result.data.STAGING_CATALOGUE_MODE==='true',
     port: result.data.PORT,
     databaseUrl: result.data.DATABASE_URL,
     redisUrl: result.data.REDIS_URL,

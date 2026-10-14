@@ -1,4 +1,5 @@
 import express from 'express';
+import { catalogueStatusRoutes } from './modules/catalogue-status/catalogue-status.routes.js';
 import { pricingRoutes } from './modules/pricing/pricing.routes.js';
 import type { PricingService } from './modules/pricing/pricing.service.js';
 import cors from 'cors';
@@ -50,6 +51,7 @@ export function createApp(dependencies: {
   demoCatalog?: DemoCatalog;
   events?: EventCatalog;
   eventBooking?: EventBookingService;
+  catalogueStage?: { databaseUrl: string; staging: boolean };
 }) {
   const app = express();
   app.disable('x-powered-by');
@@ -63,6 +65,7 @@ export function createApp(dependencies: {
   app.use('/api/auth/google', googleRequest(dependencies.frontendOrigin, dependencies.auth.google?.challenge));
   app.use(express.json({ limit: '100kb' }));
   app.use('/api/health', healthRoutes(dependencies.healthService));
+  app.use('/api/catalogue', catalogueStatusRoutes(dependencies.catalogueStage));
   if (dependencies.demoCatalog) app.use('/api/demo-catalog', demoCatalogRoutes(dependencies.demoCatalog));
   if (dependencies.events) app.use('/api', eventRoutes(dependencies.events));
   if (dependencies.booking || dependencies.eventBooking) app.use('/api', eventBookingRoutes(dependencies.eventBooking, dependencies.auth));

@@ -40,6 +40,7 @@ const tokens = new TokenService({ secret: config.jwtSecret, expiresInSeconds: co
 const eventBooking = createEventBooking(prisma, redis);
 const booking = { bookings: new BookingGateway(new BookingTargetRepository(prisma), createBooking(prisma, redis).bookings, eventBooking) };
 const app = createApp({ frontendOrigin: config.frontendOrigin,
+  catalogueStage: { databaseUrl: config.databaseUrl, staging: config.stagingCatalogueMode },
   healthService: new HealthService(new HealthRepository(prisma, redis)),
   auth: { service: new AuthService(new UserRepository(prisma), tokens), tokens,
     google: config.googleClientId ? {
@@ -56,7 +57,7 @@ const app = createApp({ frontendOrigin: config.frontendOrigin,
   uiRead: createUiRead(prisma, booking.bookings),
   account: createAccount(prisma, config.cloudinary),
   wishlist: createWishlist(prisma),
-  payments: createPayments(prisma, booking.bookings, config.razorpay,config.devRazorpayTestCheckout?pricing:undefined),
+  payments: createPayments(prisma, booking.bookings, config.razorpay,config.devRazorpayTestCheckout?pricing:undefined, !config.stagingCatalogueMode),
 });
 
 // Availability is reported by readiness. Liveness stays usable during outages.

@@ -1,5 +1,24 @@
 # Google authentication
 
+## Hosted checkpoint — 14 October 2026
+
+The deployed origin restriction was reproduced and the owner added the hosted
+origin to the matching Google Web client. A later real Chrome inspection found
+Google's `Failed to open popup window` errors, including after the owner allowed
+site popups. No successful sign-in/session/logout is claimed.
+
+Prepared a small frontend change: GIS initialization opts into
+`use_fedcm_for_button: true` with `button_auto_select: false` and `auto_select: false`.
+Modern Chrome can mediate the account chooser instead of relying on a legacy
+popup. Older browsers follow GIS fallback behavior. Nonce, CSRF challenge,
+cryptographic verification, identity matching and application JWT flow are unchanged.
+See [Google's official FedCM migration guide](https://developers.google.com/identity/gsi/web/guides/fedcm-migration).
+The new option has a failing-then-passing boundary/lifecycle test, but requires
+frontend deployment and a real account-selection/session/logout acceptance check.
+No browser security setting was disabled globally or modified by the agent.
+
+The original implementation notes below remain historical where superseded.
+
 Local implementation checkpoint: 2026-10-10. Provider credentials are absent;
 the real Google popup/account journey has not been claimed as tested.
 
@@ -60,6 +79,18 @@ Our local controlled-verifier/JWKS tests cover validation/races but are not a
 substitute for this provider-configured acceptance test.
 
 ## Files and tests
+
+### Hosted acceptance — 15 October 2026
+
+Owner-approved frontend-only commits `4d12b6b` and `194e948` were pushed to main.
+The served Vercel entry contains the FedCM opt-in and mounted media credits;
+the official logo returns image/svg+xml. From a signed-out hosted Login page,
+Continue with Google rendered the provider account control, activation signed
+into CineHook, reload retained the authenticated account menu, and Logout
+returned to the Login link. No password/email entry or security bypass was used.
+No new-account registration with a second Google identity was performed; that
+acceptance case remains unverified. Existing nonce/CSRF/account-link safeguards
+are unchanged. Fifteen focused frontend Google/media tests and builds passed.
 
 Backend: `src/modules/auth/google/` (challenge, middleware, routes, controller,
 service, repository, types, verifier), existing AuthService/routes, configuration

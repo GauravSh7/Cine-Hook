@@ -1,4 +1,5 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
+import { CatalogueNotice } from './components/CatalogueNotice'
 import { SessionProvider } from './app/SessionProvider'
 import { CityProvider } from './app/CityProvider'
 import { PublicLayout } from './components/PublicLayout'
@@ -25,7 +26,7 @@ import { EventPage } from './pages/EventPage'
 import { EventSeatsPage } from './pages/EventSeatsPage'
 
 export default function App() {
-  return <BrowserRouter><SessionProvider><CityProvider><NavigationEffects /><Routes>
+  return <BrowserRouter><SessionProvider><CityProvider><CatalogueNotice /><NavigationEffects /><Routes>
     <Route path="/login" element={<RouteScope><AuthPage /></RouteScope>} />
     <Route path="/register" element={<RouteScope><AuthPage register /></RouteScope>} />
     <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
