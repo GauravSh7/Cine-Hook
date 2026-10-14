@@ -1072,3 +1072,17 @@ Live API check: backend readiness is healthy, all 77 movie responses contain
 Hindi descriptions, 69 have available TMDB ratings, and searching Muzaffarnagar
 returns the supported city. Frontend responds at localhost:5173. No database
 reset, payment mutation, commit, push, or deployment.
+
+## 14 October — Render dependency diagnostics
+
+Added allowlisted error-name/code logging for readiness, Redis errors/startup,
+and PostgreSQL pool/connection errors. Connection timeouts are 10 seconds and
+readiness is bounded at 15 seconds. SQL statement timeout, UTC sessions and all
+seat-lock/coupon/payment behavior remain unchanged. Exact remote failure is not
+yet established because Render configuration/logs were not available.
+See [Render connectivity](render-connectivity.md) for deployment settings,
+Neon/Upstash TLS requirements, and interpreting safe error codes.
+
+Verified: 74 focused unit/HTTP tests, 8 real Redis concurrency/TTL/ownership tests,
+backend typecheck/build, and actual-client local readiness (both dependencies up).
+No migrations or database resets were required; remote deployment remains unverified.

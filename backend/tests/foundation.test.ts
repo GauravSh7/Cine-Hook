@@ -112,7 +112,7 @@ describe('HTTP foundation', () => {
         checkRedis: async () => {},
       });
       const result = service.readiness();
-      await vi.advanceTimersByTimeAsync(2500);
+      await vi.advanceTimersByTimeAsync(15000);
       expect(await result).toEqual({ status: 'unavailable', database: 'down', redis: 'up' });
     } finally { vi.useRealTimers(); }
   });

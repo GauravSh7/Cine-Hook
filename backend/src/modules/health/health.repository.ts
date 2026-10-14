@@ -10,7 +10,7 @@ export class HealthRepository implements HealthChecks {
   }
 
   async checkRedis(): Promise<void> {
-    if (!this.redis.isReady) throw new Error('Redis unavailable');
-    if (await this.redis.ping() !== 'PONG') throw new Error('Redis unavailable');
+    if (!this.redis.isReady) throw Object.assign(new Error('Redis unavailable'), { code: 'REDIS_NOT_READY' });
+    if (await this.redis.ping() !== 'PONG') throw Object.assign(new Error('Redis unavailable'), { code: 'REDIS_UNEXPECTED_RESPONSE' });
   }
 }

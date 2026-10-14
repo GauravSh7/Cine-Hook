@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { logDependencyFailure } from './lib/dependency-diagnostics.js';
 import { PricingRepository } from './modules/pricing/pricing.repository.js';
 import { PricingService } from './modules/pricing/pricing.service.js';
 import { createApp } from './app.js';
@@ -59,7 +60,7 @@ const app = createApp({ frontendOrigin: config.frontendOrigin,
 });
 
 // Availability is reported by readiness. Liveness stays usable during outages.
-void redis.connect().catch(() => console.error(JSON.stringify({ event: 'redis_connect_failed' })));
+void redis.connect().catch(error => logDependencyFailure('redis_connect_failed', 'redis', error));
 const server = app.listen(config.port, () => {
   console.info(JSON.stringify({ event: 'server_started', port: config.port }));
 });
