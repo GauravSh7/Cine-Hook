@@ -6,6 +6,15 @@ import { MovieCard } from '../src/components/MovieCard'
 import { MemoryRouter } from 'react-router'
 import { ids, mockApi, movie, ok } from './fixtures'
 
+it('makes TMDB attribution and the approved logo accessible from the movie detail page', async () => {
+  window.history.replaceState({}, '', `/movies/${ids.movie}`)
+  mockApi(path => path === `/api/movies/${ids.movie}` ? ok({ movie: { ...movie, artwork: { kind: 'TMDB', sourceUrl: 'https://www.themoviedb.org/movie/157336', attribution: 'TMDB artwork' } } }) : undefined)
+  render(<App />)
+  await userEvent.click(await screen.findByText('About & media credits'))
+  expect(screen.getByText('This product uses the TMDB API but is not endorsed or certified by TMDB.')).toBeVisible()
+  expect(screen.getByAltText('TMDB')).toHaveAttribute('src', '/provider-assets/tmdb-logo.svg')
+});
+
 it('cards display a source-labelled score and language without exposing release dates or confusing providers', () => {
   render(<MemoryRouter><MovieCard movie={{ ...movie, rating: { provider: 'TMDB', value: 8.3, scale: 10, voteCount: 1234, sourceUrl: 'https://www.themoviedb.org/movie/27205', verifiedAt: '2026-10-10T00:00:00Z' } }} /></MemoryRouter>)
   expect(screen.getByText(/8.3\/10.*TMDB/)).toBeVisible()
