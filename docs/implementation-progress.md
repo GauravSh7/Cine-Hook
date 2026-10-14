@@ -1207,3 +1207,21 @@ behavior remain intact. No secrets committed. Backend/importer are not deployed.
 Awaiting explicit approval to deploy staging/payment safeguards + staging notice
 and import this reviewed catalogue. Populated hosted rendering can only be
 verified after that import. No tax policies imported and no live payments enabled.
+
+## 15 October — import approved, recovery archive verified, Render rollout blocked
+
+Owner approved the exact reviewed catalogue import and required safeguards.
+Read-only preflight reverified Neon identity, original approval/source hashes,
+zero metadata differences and no newly expired sessions. A private complete
+PostgreSQL recovery archive was created outside Git/OneDrive and fully decoded
+without restoring it; its checksum and recovery path are in staging-release-status.md.
+
+Pushed approved safeguard/importer commit 3d95653. Forty focused backend and
+seventeen frontend tests passed, along with both typechecks/builds and frontend
+lint. Configured staging mode true and development Razorpay checkout false in
+Render. Manual rollout failed with Service Unavailable; official provider status
+confirms deployment outage and paused free-service deployments. The required
+hosted guard still returns 404. **Stopped before apply: zero Neon catalogue writes.**
+No bypass, payment enablement, reset, deletion or unapproved upgrade occurred.
+Resume only after the guard is deployed and the same frozen plan remains valid;
+changed or expired inventory requires another review, not silent date edits.
