@@ -51,7 +51,7 @@ export function createApp(dependencies: {
   demoCatalog?: DemoCatalog;
   events?: EventCatalog;
   eventBooking?: EventBookingService;
-  catalogueStage?: { databaseUrl: string; staging: boolean };
+  catalogueStage?: { databaseUrl: string; staging: boolean; testPaymentsAllowed?: boolean };
 }) {
   const app = express();
   app.disable('x-powered-by');

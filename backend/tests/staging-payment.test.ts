@@ -17,7 +17,7 @@ describe('staging publication safety', () => {
     const direct = 'postgresql://catalogue:placeholder@ep-test.region.aws.neon.tech/neondb?sslmode=verify-full';
     const pooled = 'postgresql://catalogue:different@ep-test-pooler.region.aws.neon.tech/neondb?sslmode=require';
     expect(catalogueTargetFingerprint(direct)).toBe(catalogueTargetFingerprint(pooled));
-    expect(catalogueStageStatus(direct, false)).toEqual({ mode: 'standard', newPaymentsAllowed: true, targetFingerprint: null });
+    expect(catalogueStageStatus(direct, false)).toEqual({ mode: 'standard', newPaymentsAllowed: true, testPaymentsAllowed: false, targetFingerprint: null });
     expect(JSON.stringify(catalogueStageStatus(direct, true))).not.toMatch(/placeholder|postgresql|neon\.tech/);
   });
   it('requires the deployed staging guard and matching database target before import', async () => {
@@ -34,5 +34,10 @@ describe('staging publication safety', () => {
       JWT_SECRET: 'only-a-test-fixture-with-more-than-32-characters', FRONTEND_ORIGIN: 'http://localhost:5173' };
     expect(parseConfig(env).stagingCatalogueMode).toBe(false);
     expect(parseConfig({ ...env, STAGING_CATALOGUE_MODE: 'true' }).stagingCatalogueMode).toBe(true);
+  });
+  it('keeps live/new payments blocked while reporting an explicit test-only checkout separately',()=>{
+    const direct='postgresql://catalogue:fixture@ep-test.region.aws.neon.tech/neondb?sslmode=verify-full';
+    expect(catalogueStageStatus(direct,true,true)).toMatchObject({mode:'staging',newPaymentsAllowed:false,testPaymentsAllowed:true});
+    expect(catalogueStageStatus(direct,true,false)).toMatchObject({mode:'staging',newPaymentsAllowed:false,testPaymentsAllowed:false});
   });
 });

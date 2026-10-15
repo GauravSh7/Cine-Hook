@@ -7,19 +7,26 @@ const stateError = () => new AppError(409,'BOOKING_STATE','This booking cannot b
 const firstError = () => new AppError(409,'FIRST_OFFER_UNAVAILABLE','The first-booking offer is unavailable or reserved for another checkout.');
 export class PricingRepository {
   private readonly testKeyId?:string;
+  private readonly testTarget?:{database:string;role:string;port:number};
   constructor(private readonly prisma: PrismaClient, private readonly context: PricingContext = 'verified', testEnvironment?:Record<string,string|undefined>) {
     if(context==='razorpay-test'){
       const config=parseConfig(testEnvironment??{});
-      if(!config.devRazorpayTestCheckout||!config.razorpay)throw new AppError(503,'TEST_CHECKOUT_DISABLED','TEST checkout is not enabled.');
+      if((!config.devRazorpayTestCheckout&&!config.stagingRazorpayTestCheckout)||!config.razorpay)throw new AppError(503,'TEST_CHECKOUT_DISABLED','TEST checkout is not enabled.');
       this.testKeyId=config.razorpay.keyId;
+      const target=new URL(config.databaseUrl);
+      this.testTarget=config.stagingRazorpayTestCheckout
+        ? {database:decodeURIComponent(target.pathname.slice(1)),role:decodeURIComponent(target.username),port:Number(target.port||5432)}
+        : {database:'cinehook_dev',role:decodeURIComponent(target.username),port:5432};
     }
   }
   assertProvider(keyId:string){if(this.context==='razorpay-test'&&keyId!==this.testKeyId)throw new AppError(503,'TEST_CHECKOUT_DISABLED','TEST provider configuration does not match.');}
   private async allowSimulation(tx: Prisma.TransactionClient) {
     if (this.context === 'verified') return false;
-    const [identity] = await tx.$queryRaw<Array<{name:string;port:number}>>`SELECT current_database() AS name, inet_server_port() AS port`;
-    return this.context === 'development-preview' || this.context === 'razorpay-test' ? identity?.name === 'cinehook_dev' && identity.port === 5432
-      : !!identity && identity.port === 55438 && /^(?:cinehook_event_seed_pricing|refinement_ui_native)_[a-z0-9_]+_test$/.test(identity.name);
+    const [identity] = await tx.$queryRaw<Array<{name:string;role:string;schema:string;port:number}>>`SELECT current_database() AS name, current_user AS role, current_schema() AS schema, inet_server_port() AS port`;
+    if(this.context==='development-preview')return identity?.name==='cinehook_dev'&&identity.schema==='public'&&identity.port===5432;
+    if(this.context==='razorpay-test')return !!identity&&!!this.testTarget&&identity.name===this.testTarget.database
+      && identity.role===this.testTarget.role&&identity.schema==='public'&&identity.port===this.testTarget.port;
+    return !!identity&&identity.port===55438&&/^(?:cinehook_event_seed_pricing|refinement_ui_native)_[a-z0-9_]+_test$/.test(identity.name);
   }
   async assertPaymentAllowed(tx: Prisma.TransactionClient, breakdown: Prisma.JsonValue | undefined) {
     const quote = breakdown as unknown as {simulated?:boolean;policy?:TaxPolicy} | undefined;

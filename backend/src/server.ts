@@ -31,16 +31,17 @@ import { BookingTargetRepository } from './modules/booking/booking-target.reposi
 
 const config = parseConfig(process.env);
 const databaseTarget = new URL(config.databaseUrl);
+const razorpayTestCheckout = config.devRazorpayTestCheckout || config.stagingRazorpayTestCheckout;
 const previewContext = config.nodeEnv === 'development' && ['localhost','127.0.0.1','[::1]'].includes(databaseTarget.hostname)
   && databaseTarget.pathname === '/cinehook_dev' && (!databaseTarget.port || databaseTarget.port === '5432');
 const prisma = createPrisma(config.databaseUrl);
-const pricing = new PricingRepository(prisma,config.devRazorpayTestCheckout?'razorpay-test':previewContext?'development-preview':'verified',config.devRazorpayTestCheckout?process.env:undefined);
+const pricing = new PricingRepository(prisma,razorpayTestCheckout?'razorpay-test':previewContext?'development-preview':'verified',razorpayTestCheckout?process.env:undefined);
 const redis = createRedis(config.redisUrl);
 const tokens = new TokenService({ secret: config.jwtSecret, expiresInSeconds: config.jwtExpiresInSeconds });
 const eventBooking = createEventBooking(prisma, redis);
 const booking = { bookings: new BookingGateway(new BookingTargetRepository(prisma), createBooking(prisma, redis).bookings, eventBooking) };
 const app = createApp({ frontendOrigin: config.frontendOrigin,
-  catalogueStage: { databaseUrl: config.databaseUrl, staging: config.stagingCatalogueMode },
+  catalogueStage: { databaseUrl: config.databaseUrl, staging: config.stagingCatalogueMode, testPaymentsAllowed: config.stagingRazorpayTestCheckout },
   healthService: new HealthService(new HealthRepository(prisma, redis)),
   auth: { service: new AuthService(new UserRepository(prisma), tokens), tokens,
     google: config.googleClientId ? {
@@ -57,7 +58,7 @@ const app = createApp({ frontendOrigin: config.frontendOrigin,
   uiRead: createUiRead(prisma, booking.bookings),
   account: createAccount(prisma, config.cloudinary),
   wishlist: createWishlist(prisma),
-  payments: createPayments(prisma, booking.bookings, config.razorpay,config.devRazorpayTestCheckout?pricing:undefined, !config.stagingCatalogueMode),
+  payments: createPayments(prisma, booking.bookings, config.razorpay,razorpayTestCheckout?pricing:undefined, !config.stagingCatalogueMode || config.stagingRazorpayTestCheckout),
 });
 
 // Availability is reported by readiness. Liveness stays usable during outages.

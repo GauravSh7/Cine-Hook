@@ -10,12 +10,12 @@ it('simulated provider checkout needs explicit validated configuration and exact
   expect(()=>pricing.assertProvider('rzp_live_other')).toThrow();expect(()=>pricing.assertProvider('rzp_test_different')).toThrow();
   expect(()=>pricing.assertProvider(environment.RAZORPAY_KEY_ID)).not.toThrow();
 });
-it('runtime database identity must still match cinehook_dev on 5432',async()=>{
+it('runtime database identity must still match the configured test database, schema, role and port',async()=>{
   const pricing=new PricingRepository({} as any,'razorpay-test',environment);
-  for(const identity of [{name:'cinehook',port:5432},{name:'cinehook_dev',port:55438}]){
+  for(const identity of [{name:'cinehook',role:'fixture',schema:'public',port:5432},{name:'cinehook_dev',role:'fixture',schema:'private',port:5432},{name:'cinehook_dev',role:'other',schema:'public',port:5432},{name:'cinehook_dev',role:'fixture',schema:'public',port:55438}]){
     await expect(pricing.assertPaymentAllowed({$queryRaw:async()=>[identity]} as any,{simulated:true})).rejects.toMatchObject({code:'SIMULATED_PREVIEW_ONLY'});
   }
-  await expect(pricing.assertPaymentAllowed({$queryRaw:async()=>[{name:'cinehook_dev',port:5432}]} as any,{simulated:true})).resolves.toBeUndefined();
+  await expect(pricing.assertPaymentAllowed({$queryRaw:async()=>[{name:'cinehook_dev',role:'fixture',schema:'public',port:5432}]} as any,{simulated:true})).resolves.toBeUndefined();
   const quote=calculateQuote([{id:'seat',price:25000}],'FIRST50',cinemaSimulationPolicy,new Date('2026-10-13'),'razorpay-test');
   expect(quote.simulated).toBe(true);expect(quote.policy.verified).toBe(false);expect(quote.paymentAllowed).toBe(true);expect(quote.totalPaise).toBe(13326);
 });

@@ -1,12 +1,14 @@
 import { z } from 'zod';
+import { APPROVED_STAGING_TARGET_FINGERPRINT, catalogueTargetFingerprint } from '../lib/catalogue-stage.js';
 
 const connectionUrl = (protocols: string[]) => z.string().url().refine(value =>
   protocols.includes(new URL(value).protocol));
 const optionalCredential = (minimum: number) => z.preprocess(value =>
   typeof value === 'string' && !value.trim() ? undefined : value, z.string().min(minimum).max(512).optional());
-const schema = z.object({
+const createSchema = (approvedStagingFingerprint: string) => z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DEV_RAZORPAY_TEST_CHECKOUT: z.enum(['true','false']).default('false'),
+  STAGING_RAZORPAY_TEST_CHECKOUT: z.enum(['true','false']).default('false'),
   STAGING_CATALOGUE_MODE: z.enum(['true','false']).default('false'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: connectionUrl(['postgres:', 'postgresql:']),
@@ -31,11 +33,20 @@ const schema = z.object({
   }),
 }).refine(value=>{
   if(value.DEV_RAZORPAY_TEST_CHECKOUT!=='true')return true;
+  if(value.STAGING_RAZORPAY_TEST_CHECKOUT==='true')return false;
   const db=new URL(value.DATABASE_URL);
   return value.NODE_ENV!=='production' && ['localhost','127.0.0.1','[::1]'].includes(db.hostname)
     && db.pathname==='/cinehook_dev' && (!db.port||db.port==='5432') && !db.search && !db.hash
     && /^rzp_test_[A-Za-z0-9]+$/.test(value.RAZORPAY_KEY_ID??'') && !!value.RAZORPAY_KEY_SECRET && !!value.RAZORPAY_WEBHOOK_SECRET;
 },{path:['DEV_RAZORPAY_TEST_CHECKOUT']}).refine(value => {
+  if(value.STAGING_RAZORPAY_TEST_CHECKOUT!=='true')return true;
+  const db=new URL(value.DATABASE_URL);
+  return value.NODE_ENV==='production' && value.STAGING_CATALOGUE_MODE==='true'
+    && db.hostname.toLowerCase().endsWith('.neon.tech')
+    && catalogueTargetFingerprint(value.DATABASE_URL)===approvedStagingFingerprint
+    && /^rzp_test_[A-Za-z0-9]+$/.test(value.RAZORPAY_KEY_ID??'')
+    && !!value.RAZORPAY_KEY_SECRET && !!value.RAZORPAY_WEBHOOK_SECRET;
+},{path:['STAGING_RAZORPAY_TEST_CHECKOUT']}).refine(value => {
   const count = [value.RAZORPAY_KEY_ID, value.RAZORPAY_KEY_SECRET, value.RAZORPAY_WEBHOOK_SECRET].filter(Boolean).length;
   return count === 0 || count === 3;
 }, { path: ['RAZORPAY_CONFIG'] }).refine(value => {
@@ -43,8 +54,8 @@ const schema = z.object({
   return count === 0 || count === 3;
 }, { path: ['CLOUDINARY_CONFIG'] });
 
-export function parseConfig(env: Record<string, string | undefined>) {
-  const result = schema.safeParse(env);
+export function parseConfig(env: Record<string, string | undefined>, approvedStagingFingerprint = APPROVED_STAGING_TARGET_FINGERPRINT) {
+  const result = createSchema(approvedStagingFingerprint).safeParse(env);
   if (!result.success) {
     // Field names are useful diagnostics; actual values may contain secrets.
     const fields = [...new Set(result.error.issues.map(issue => issue.path.join('.')))];
@@ -53,6 +64,7 @@ export function parseConfig(env: Record<string, string | undefined>) {
   return {
     nodeEnv: result.data.NODE_ENV,
     devRazorpayTestCheckout: result.data.DEV_RAZORPAY_TEST_CHECKOUT==='true',
+    stagingRazorpayTestCheckout: result.data.STAGING_RAZORPAY_TEST_CHECKOUT==='true',
     stagingCatalogueMode: result.data.STAGING_CATALOGUE_MODE==='true',
     port: result.data.PORT,
     databaseUrl: result.data.DATABASE_URL,

@@ -33,6 +33,7 @@
     "dev:db:check": "tsx scripts/dev-launch.ts check",
     "dev:pricing:configure": "tsx scripts/dev-pricing-tax.ts",
     "dev:pricing:simulate": "tsx scripts/dev-pricing-simulation.ts",
+    "staging:pricing:sync": "tsx scripts/staging-test-pricing.ts",
     "test:pricing:integration": "node tests/pricing-verify.mjs",
     "dev:db:migrate": "tsx scripts/dev-launch.ts migrate",
     "dev:populated": "tsx scripts/dev-launch.ts start",
