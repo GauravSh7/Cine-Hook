@@ -73,9 +73,11 @@ it('normal browsing menu opens account destinations', async () => {
   expect(screen.getByRole('link', { name: 'My Wishlist' })).toHaveAttribute('href', '/wishlist')
   expect(screen.queryByRole('button', { name: /Google|Apple|Facebook/ })).not.toBeInTheDocument()
 })
-it('help explains the future chatbot without an operative chat form', async () => {
+it('help provides customer FAQs without a chatbot option', async () => {
   window.history.replaceState({}, '', '/help'); mockApi(); render(<App />)
   expect(await screen.findByRole('region', { name: 'Frequently asked questions' })).toBeVisible()
   expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument()
   expect(screen.queryByRole('textbox', { name: /message/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /chat with us/i })).not.toBeInTheDocument()
+  expect(screen.queryByText(/chatbot|AI support experience/i)).not.toBeInTheDocument()
 })

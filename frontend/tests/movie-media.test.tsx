@@ -6,13 +6,12 @@ import { MovieCard } from '../src/components/MovieCard'
 import { MemoryRouter } from 'react-router'
 import { ids, mockApi, movie, ok } from './fixtures'
 
-it('makes TMDB attribution and the approved logo accessible from the movie detail page', async () => {
+it('keeps movie detail pages free of repeated media-credit panels', async () => {
   window.history.replaceState({}, '', `/movies/${ids.movie}`)
   mockApi(path => path === `/api/movies/${ids.movie}` ? ok({ movie: { ...movie, artwork: { kind: 'TMDB', sourceUrl: 'https://www.themoviedb.org/movie/157336', attribution: 'TMDB artwork' } } }) : undefined)
   render(<App />)
-  await userEvent.click(await screen.findByText('About & media credits'))
-  expect(screen.getByText('This product uses the TMDB API but is not endorsed or certified by TMDB.')).toBeVisible()
-  expect(screen.getByAltText('TMDB')).toHaveAttribute('src', '/provider-assets/tmdb-logo.svg')
+  expect(await screen.findByRole('heading', { name: movie.title })).toBeVisible()
+  expect(screen.queryByText(/About & media credits|Movie artwork belongs/)).not.toBeInTheDocument()
 });
 
 it('cards display a source-labelled score and language without exposing release dates or confusing providers', () => {

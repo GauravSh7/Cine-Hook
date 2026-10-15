@@ -3,6 +3,7 @@ import { authApi } from '../api/auth'
 import { ApiError, setAccessToken } from '../api/client'
 import type { AuthResult, User } from '../api/types'
 import { SessionContext, type Session } from './session-context'
+import { scheduleTokenExpiryLogout } from './token-expiry'
 
 const storageKey = 'cinehook.access-token'
 function storedToken() { try { return sessionStorage.getItem(storageKey) } catch { return null } }
@@ -18,6 +19,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   })
   const [revision, retry] = useReducer((value: number) => value + 1, 0)
   const token = state.token
+  useEffect(() => {
+    if (!token) return
+    return scheduleTokenExpiryLogout(token, () => {
+      saveToken(null)
+      setState({ token: null, user: null, status: 'anonymous' })
+    })
+  }, [token])
   useEffect(() => {
     if (!token) return
     const controller = new AbortController()

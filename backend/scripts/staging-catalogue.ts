@@ -6,7 +6,7 @@ import { PrismaClient } from '../src/generated/prisma/client.js';
 import { dependencyErrorDetails } from '../src/lib/dependency-diagnostics.js';
 import { resolveStagingTarget, verifyStagingIdentity, verifyStagingBackend, parseImportArguments, safeStagingFailureMessage } from './staging-target.js';
 import { inventoryCounts } from './staging-manifest.js';
-import { inspectCatalogue, applyCatalogue } from './staging-catalogue-core.js';
+import { inspectCatalogue, applyCatalogue, stagingTransactionOptions } from './staging-catalogue-core.js';
 import { readLocalParitySnapshot } from './staging-source.js';
 import { compareCatalogue, decodeParitySnapshot, validateParitySnapshot, readCatalogue } from './staging-parity.js';
 import { digest } from './staging-shape.js';
@@ -14,6 +14,7 @@ import { auditCatalogueMedia, mediaReviewComplete, type MediaAudit, type MediaPe
 import { applyContentReview, type ContentReview } from './staging-content.js';
 
 const artifactDirectory=new URL('../.staging-parity/',import.meta.url);
+let phase='prepare';
 async function privateJson(name:string):Promise<string>{return readFile(new URL(name,artifactDirectory),'utf8');}
 async function permissions():Promise<MediaPermission[]>{
   try{const p=JSON.parse(await privateJson('media-permissions.json')) as MediaPermission[];if(!Array.isArray(p))throw new Error('Invalid media review.');return p;}
@@ -58,6 +59,7 @@ async function main() {
   try {
     console.log(JSON.stringify({event:'staging_preview',phase:'database-read-only',mediaAssets:media.assets.length,failedMedia:media.failed}));
     const result = await prisma.$transaction(async tx => {
+      phase='identity';
       if (args.mode === 'dry-run') await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
       const [identity] = await tx.$queryRaw<Array<{database: string; role: string; schema: string; port: number}>>`
         SELECT current_database() AS database, current_user AS role, current_schema() AS schema, inet_server_port() AS port`;
@@ -67,9 +69,10 @@ async function main() {
       if (migrations.some(name => !applied.some(row => row.migration_name === name))) throw new Error('Staging schema is missing repository migrations; import stopped.');
       if (args.mode === 'apply') {
         await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '5s'");
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(1667853941, 1937006967)`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(1667853941, 1937006967)`;
       }
-      const plan = await inspectCatalogue(tx, manifest);
+      phase='inspect';const plan = await inspectCatalogue(tx, manifest);
+      phase='compare';
       const comparison=compareCatalogue(snapshot,await readCatalogue(tx));
       const planHash = digest({target:target.fingerprint,snapshot,pending:plan.groups,media,mediaPermissions,contentReviewHash});
       if (args.mode === 'apply') {
@@ -77,16 +80,17 @@ async function main() {
         validateParitySnapshot(snapshot,clock!.now);
         if (args.approvedPlan !== planHash) throw new Error('Staging dry-run plan changed; request a new approval before applying.');
         if(Object.values(comparison.models).some(r=>r.different))throw new Error('Existing catalogue metadata differs; no existing rows may be overwritten.');
-        await applyCatalogue(tx, plan);
+        phase='insert';await applyCatalogue(tx, plan);
+        phase='constraints';
         await tx.$executeRawUnsafe('SET CONSTRAINTS ALL IMMEDIATE');
-        const after=compareCatalogue(snapshot,await readCatalogue(tx));
+        phase='verify';const after=compareCatalogue(snapshot,await readCatalogue(tx));
         if(Object.values(after.models).some(r=>r.missing||r.different))throw new Error('Staging parity verification failed; transaction must roll back.');
       }
       return { mode: args.mode, databaseVerified: true,sourceVerified:true,capturedAt:snapshot.capturedAt,migrationsVerified:migrations.length,targetFingerprint:target.fingerprint,planHash,
         sourceHash:digest(snapshot),source:snapshot.sourceCounts,exclusions:snapshot.exclusions,planned:inventoryCounts(manifest),toCreate:plan.createCounts,
         comparison,media,contentChanges,contentReviewHash,mediaReviewComplete:mediaReviewComplete(media,mediaPermissions),pricingPoliciesImported:0,
         imported:args.mode==='apply'?plan.createCounts:null };
-    }, { isolationLevel:'RepeatableRead',maxWait: 45000, timeout: 180000 });
+    }, stagingTransactionOptions(args.mode));
     if(args.mode==='dry-run'){
       await mkdir(artifactDirectory,{recursive:true});
       await writeFile(new URL('snapshot.json',artifactDirectory),JSON.stringify(snapshot,null,2));
@@ -99,6 +103,7 @@ async function main() {
 main().catch(error => {
   // Print only our fixed diagnostic messages or recognized provider error codes.
   const message = safeStagingFailureMessage(error);
-  console.error(JSON.stringify({ event: 'staging_import_failed', message, ...dependencyErrorDetails(error) }));
+  const prismaCode=typeof error?.code==='string'&&/^P\d{4}$/.test(error.code)?error.code:undefined;
+  console.error(JSON.stringify({ event: 'staging_import_failed', phase, prismaCode, message, ...dependencyErrorDetails(error) }));
   process.exitCode = 1;
 });

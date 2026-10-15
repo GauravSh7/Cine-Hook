@@ -7,7 +7,7 @@ import {PrismaClient} from '../src/generated/prisma/client.ts';
 import {resolveDevTarget} from '../scripts/dev-target.ts';
 import {readLocalParitySnapshot} from '../scripts/staging-source.ts';
 import {validateParitySnapshot,compareCatalogue,readCatalogue} from '../scripts/staging-parity.ts';
-import {inspectCatalogue,applyCatalogue} from '../scripts/staging-catalogue-core.ts';
+import {inspectCatalogue,applyCatalogue,stagingTransactionOptions} from '../scripts/staging-catalogue-core.ts';
 import {applyContentReview} from '../scripts/staging-content.ts';
 
 // Actual complete source graph, isolated IDs/natural keys, one local transaction, unconditional rollback.
@@ -41,6 +41,14 @@ try{
   const privateCounts=async db=>({users:await db.user.count(),bookings:await db.booking.count(),payments:await db.payment.count(),refunds:await db.refund.count()});
   const before=await privateCounts(prisma),moviesBefore=await prisma.movie.count();
   try{await prisma.$transaction(async tx=>{
+    // Execute the CLI's actual advisory-lock statement through its chosen Prisma API.
+    // queryRaw cannot deserialize PostgreSQL void; executeRaw must still acquire the lock.
+    phase='CLI advisory lock';const cli=await readFile(new URL('../scripts/staging-catalogue.ts',import.meta.url),'utf8');
+    const statement=cli.match(/await tx\.\$(queryRaw|executeRaw)`(SELECT pg_advisory_xact_lock\([^`]+\))`;/);
+    assert.ok(statement,'CLI lock statement must be covered by the real-database test');
+    await tx[`$${statement[1]}Unsafe`](statement[2]);
+    const [held]=await tx.$queryRawUnsafe("SELECT count(*)::int AS count FROM pg_locks WHERE locktype='advisory' AND pid=pg_backend_pid() AND classid=1667853941 AND objid=1937006967 AND granted");
+    assert.equal(held.count,1);
     phase='plan';const plan=await inspectCatalogue(tx,snapshot.groups);
     assert.equal(plan.createCounts.movies,77);assert.equal(plan.createCounts.cities,6998);assert.equal(plan.createCounts.screens,8);
     phase='insert';await applyCatalogue(tx,plan);
@@ -52,7 +60,7 @@ try{
     assert.equal(Object.values(repeated.createCounts).reduce((a,b)=>a+b,0),0);
     await applyCatalogue(tx,repeated);assert.deepEqual(await privateCounts(tx),before);
     complete=true;throw rollback;
-  },{timeout:180000,maxWait:10000});}catch(e){if(e!==rollback)throw e;}
+  },stagingTransactionOptions('apply'));}catch(e){if(e!==rollback)throw e;}
   assert.ok(complete);assert.equal(await prisma.movie.count(),moviesBefore);assert.deepEqual(await privateCounts(prisma),before);
   console.log('PASS: complete 77-movie/6998-city local snapshot, actual SQL constraints, exact metadata/layouts/prices, repeat adds zero, private records unchanged, full rollback.');
 }catch(e){console.error(JSON.stringify({phase,errorName:e.name,code:/^[A-Z0-9_]+$/.test(e.code??'')?e.code:null}));process.exitCode=1;}

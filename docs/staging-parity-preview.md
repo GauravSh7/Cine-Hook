@@ -1,5 +1,13 @@
 # Full-parity staging preview — 15 October 2026
 
+**Import completed for the approved refreshed hash.** See
+[actual counts and live checks](staging-import-completed.md). Earlier pending
+or blocked states below are preserved as historical checkpoints only.
+
+**Imported snapshot:** the approved [refreshed 14:32 IST snapshot](staging-refreshed-preview.md).
+It excludes newly expired sessions and preserves all other approved content.
+The checkpoints below are historical; their hashes must not be used for apply.
+
 ## Latest reviewed preview — supersedes the historical checkpoint below
 
 Captured **02:15:37 IST, 15 October**. Source and pinned Neon target verified;

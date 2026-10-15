@@ -11,9 +11,14 @@ import { bookingState } from '../domain/booking-state'
 import { formatCountdown, money } from '../domain/time'
 import { RefundDetails } from '../components/RefundDetails'
 import { bookingStartsAt, confirmedCancellationAllowed } from '../domain/booking-target'
+import type { BookingSummary } from '../api/types'
 
 const titles = { confirmed: 'Payment Successful', pending: 'Awaiting payment confirmation', failed: 'Booking not completed',
   cancelled: 'Booking cancelled', 'refund-pending': 'Refund In Process', refunded: 'Refund Completed', compensation: 'Payment received' }
+function markBookingCancelled(summary: BookingSummary): BookingSummary {
+  if (summary.show === null) return { ...summary, booking: { ...summary.booking, status: 'CANCELLED' } }
+  return { ...summary, booking: { ...summary.booking, status: 'CANCELLED' } }
+}
 export function BookingPage() {
   const { id = '' } = useParams(), session = useSession()
   const load = useCallback((signal: AbortSignal) => bookingApi.summary(id, signal), [id])
@@ -21,10 +26,15 @@ export function BookingPage() {
   const remaining = useCountdown(resource.data?.booking.expiresAt ?? '')
   const cancellationWindow = useCountdown(resource.data ? new Date(Date.parse(resource.data.booking.createdAt) + 24 * 60 * 60 * 1000).toISOString() : '') > 0
   const [confirm, setConfirm] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<Error | null>(null)
+  const [cancelledBookingId, setCancelledBookingId] = useState<string | null>(null)
   const actionRef = useRef<HTMLButtonElement | null>(null)
   if (resource.loading) return <main className="page-shell"><Loading label="Checking booking status…" /></main>
   if (resource.error) return <main className="page-shell"><ErrorState error={resource.error} retry={resource.reload} /></main>
-  const summary = resource.data!, { booking, payment, refunds } = summary, state = bookingState(booking, payment)
+  const loadedSummary = resource.data!
+  const summary: BookingSummary = cancelledBookingId === id && loadedSummary.booking.status !== 'CANCELLED'
+    ? markBookingCancelled(loadedSummary)
+    : loadedSummary
+  const { booking, payment, refunds } = summary, state = bookingState(booking, payment)
   const successfulPayment = payment && ['SUCCESS', 'REFUND_PENDING', 'REFUNDED'].includes(payment.status)
   const canCancel = state === 'confirmed' && cancellationWindow && confirmedCancellationAllowed(booking.createdAt, bookingStartsAt(summary))
   const title = state === 'confirmed' ? successfulPayment ? titles.confirmed : 'Booking confirmed'
@@ -34,7 +44,13 @@ export function BookingPage() {
     : state === 'failed' || payment?.status === 'FAILED' ? 'text-red-300' : 'text-amber-300'
   const run = async (action: 'cancel' | 'refund' | 'release') => {
     setBusy(true); setError(null)
-    try { if (action === 'cancel') await bookingApi.cancel(id); else if (action === 'refund') await bookingApi.retryRefund(id); else await bookingApi.release(id)
+    try {
+      if (action === 'cancel') {
+        const result = await bookingApi.cancel(id)
+        if (result.booking.status !== 'CANCELLED') throw new Error('Cancellation was not confirmed.')
+        setCancelledBookingId(id)
+      } else if (action === 'refund') await bookingApi.retryRefund(id)
+      else await bookingApi.release(id)
       setConfirm(false); resource.reload(); actionRef.current?.focus() }
     catch { setError(new Error('We couldn’t update this booking. Please refresh its status and try again.')); resource.reload() }
     finally { setBusy(false) }
@@ -62,7 +78,7 @@ export function BookingPage() {
     {state === 'confirmed' && !canCancel && <p className="muted mt-4 text-center text-sm">This booking is outside the cancellation period.</p>}
     <RefundDetails refunds={refunds} ticketValid={state === 'confirmed'} />
     {error && <div className="mt-6"><ErrorState error={error} retry={resource.reload} /></div>}
-    {confirm && <ConfirmDialog busy={busy} onClose={() => setConfirm(false)}>
+    {confirm && canCancel && <ConfirmDialog busy={busy} onClose={() => setConfirm(false)}>
       <h2 id="cancel-title" className="text-2xl font-semibold">Cancel booking?</h2><p className="muted mt-4">Your seats will be released and a full refund of your payment will be requested. Your booking stays cancelled while your refund is being processed.</p>
       <p className="mt-3">Payment received: {payment ? money(payment.amountPaise) : 'Check your payment status'}</p><div className="mt-6 flex flex-wrap gap-3">
         <button className="secondary" onClick={() => { setConfirm(false); actionRef.current?.focus() }} disabled={busy}>Keep booking</button>

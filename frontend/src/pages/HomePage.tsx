@@ -8,6 +8,8 @@ import { MovieCard } from '../components/MovieCard'
 import { FeaturedCarousel } from '../components/FeaturedCarousel'
 import { MovieRail } from '../components/MovieRail'
 import { EmptyState, ErrorState, Loading } from '../components/feedback'
+import { DiscoveryLoading } from '../components/DiscoveryLoading'
+import { useSession } from '../app/session-context'
 
 function uniqueTitles(items: Awaited<ReturnType<typeof catalogApi.movies>>['items']) {
   const seen = new Set<string>()
@@ -21,12 +23,14 @@ function uniqueTitles(items: Awaited<ReturnType<typeof catalogApi.movies>>['item
 }
 
 export function HomePage() {
-  const city = useCity()
-  if (city.loading) return <main className="page-shell"><Loading label="Loading your location…" /></main>
+  const city = useCity(), session = useSession()
+  const welcomeLoading = session.status === 'anonymous'
+  const cityLabel = city.selectedCity?.name ?? ''
+  if (city.loading) return welcomeLoading ? <DiscoveryLoading phase="location" cityName={cityLabel} /> : <main className="page-shell"><Loading label="Loading cities…" /></main>
   if (city.error) return <main className="page-shell"><ErrorState error={city.error} retry={city.retry} /></main>
-  return <MovieCatalog key={city.cityId} />
+  return <MovieCatalog key={city.cityId} welcomeLoading={welcomeLoading} cityName={cityLabel} />
 }
-function MovieCatalog() {
+function MovieCatalog({ welcomeLoading, cityName }: { welcomeLoading: boolean; cityName: string }) {
   const [params, setParams] = useSearchParams(), { cityId } = useCity()
   const now = useNow()
   const search = params.get('search') ?? '', language = params.get('language') ?? '', genre = params.get('genre') ?? ''
@@ -46,7 +50,7 @@ function MovieCatalog() {
     return allMovies.map(movie => ({ ...movie, bookingAvailability: cityMatches.get(movie.id) ?? { cityId, hasShows: false } }))
   }, [search, language, genre, cityId])
   const resource = useAsync(`movies:${cityId}:${search}:${language}:${genre}`, load)
-  if (resource.loading) return <main className="page-shell"><Loading label="Loading movies…" /></main>
+  if (resource.loading) return welcomeLoading ? <DiscoveryLoading phase="catalogue" cityName={cityName} /> : <main className="page-shell"><Loading label="Loading movies…" /></main>
   if (resource.error) return <main className="page-shell"><ErrorState error={resource.error} retry={resource.reload} /></main>
   const movies = uniqueTitles(resource.data!)
   const oneYearAgo = new Date(now)

@@ -41,7 +41,7 @@ it.each(['/', '/movies'])('%s offers exactly three graphical footer destinations
   mockApi()
   render(<App />)
   const footer = screen.getByRole('contentinfo')
-  const links = within(footer).getAllByRole('link')
+  const links = within(footer).getAllByRole('link').filter(link => link.classList.contains('footer-graphic'))
   expect(links).toHaveLength(3)
   for (const link of links) expect(link.querySelector('svg')).not.toBeNull()
   expect(within(footer).getByRole('link', { name: 'Customer Care / Support' })).toHaveAttribute('href', '/help')
@@ -84,20 +84,11 @@ it('provides five keyboard-operable FAQs with linked answers that can be closed'
   }
 })
 
-it('support opens a dedicated upcoming-chat screen and returns to FAQs', async () => {
+it('support keeps the FAQ page without a chatbot entry point', async () => {
   window.history.replaceState({}, '', '/help')
   mockApi()
   render(<App />)
-  const chat = screen.getByRole('link', { name: 'Chat With Us' })
-  expect(chat).toHaveAttribute('href', '/help/chat')
-  await userEvent.click(chat)
-  expect(await screen.findByRole('heading', { name: 'Chatbot support is coming soon' })).toBeVisible()
-  expect(screen.queryByText('CINEHOOK AI SUPPORT')).not.toBeInTheDocument()
-  expect(screen.queryByText('Chatbot integration coming soon. No chatbot or live customer support is connected yet.')).not.toBeInTheDocument()
-  expect(screen.queryByRole('navigation', { name: 'Categories' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument()
-  await userEvent.click(screen.getByRole('link', { name: 'Back to Help & Support' }))
   expect(await screen.findByRole('region', { name: 'Frequently asked questions' })).toBeVisible()
+  expect(screen.queryByRole('link', { name: /chat with us/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /chatbot/i })).not.toBeInTheDocument()
 })

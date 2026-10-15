@@ -11,7 +11,6 @@ import { EmptyState, ErrorState, Loading } from '../components/feedback'
 import { formatDateTime } from '../domain/time'
 import { WishlistButton } from '../components/WishlistButton'
 import { TrailerDialog } from '../components/TrailerDialog'
-import { MediaCredits } from '../components/MediaCredits'
 import { hasTrustedTrailer } from '../domain/movie-media'
 import { publicVenueLabel } from '../domain/customer-copy'
 
@@ -44,7 +43,7 @@ function MovieDetails({ id }: { id: string }) {
       {dates.loading ? <Loading label="Loading show dates…" /> : dates.error ? <ErrorState error={dates.error} retry={dates.reload} /> : <div className="date-strip" role="group" aria-label="Show dates in IST"><button className={date ? 'secondary' : 'btn'} aria-pressed={!date} onClick={() => { setDate(''); setPage(1) }}>All dates</button>{dates.data!.dates.map(value => <button key={value} className={date === value ? 'btn' : 'secondary'} aria-pressed={date === value} onClick={() => { setDate(value); setPage(1) }}><span>{new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }).format(new Date(`${value}T12:00:00+05:30`))}</span><small>{new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'Asia/Kolkata' }).format(new Date(`${value}T12:00:00+05:30`))}</small></button>)}</div>}
       <div className="show-groups" aria-label="Available shows">{shows.loading ? <Loading label="Loading shows…" /> : shows.error ? <ErrorState error={shows.error} retry={shows.reload} /> : groups.size === 0 ? <EmptyState title="No scheduled shows" detail="There are no screenings for this movie in the selected city and date. Try another date or city." /> : [...groups.values()].map(items => <section key={items[0]!.screen.theatre.id} className="panel theatre-shows"><div><h3>{publicVenueLabel(items[0]!.screen.theatre.name)}</h3><p className="muted text-sm">{items[0]!.screen.theatre.city.name}</p></div><div className="showtime-list">{items.map(show => show.status === 'SCHEDULED' && new Date(show.startsAt).getTime() > Date.now() ? <Link key={show.id} className="secondary showtime" to={`/shows/${show.id}/seats`}>{formatDateTime(show.startsAt)}<small>{publicVenueLabel(show.screen.name)}</small></Link> : <button key={show.id} disabled className="secondary showtime">{formatDateTime(show.startsAt)}<small>No longer available</small></button>)}</div></section>)}</div>
       <ScrollMore {...shows} next={() => setPage(p => p + 1)} retry={shows.reload}/>
-    </section><MediaCredits movie={detail} />{picker && <LocationDialog onClose={() => setPicker(false)} />}
+    </section>{picker && <LocationDialog onClose={() => setPicker(false)} />}
   </main>
 }
 function MovieTrailer({ movie }: { movie: import('../api/types').Movie }) {

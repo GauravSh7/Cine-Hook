@@ -1,9 +1,28 @@
 # CineHook implementation progress
 
-Last reviewed: 2026-10-13 (development-only cinema bill previews; real provider and event tax settings still blocked).
+Last reviewed: 2026-10-15 (hosted Razorpay TEST checkout gate prepared; awaiting private Render configuration and deployment).
 Repository: `C:/Users/gaura/OneDrive/Desktop/Cine-Hook`.
 All implementation remains uncommitted. No push or secret/environment file was
 created. Synced ChatGPT `sources/` files are read-only and were not changed.
+
+## Hosted TEST checkout — 15 October 2026
+
+Prepared a separately gated hosted Razorpay TEST path for the approved Neon
+staging target. It requires production runtime + staging mode, the pinned target
+fingerprint, a complete Razorpay TEST credential/webhook group, and an explicit
+`STAGING_RAZORPAY_TEST_CHECKOUT=true`. Live/new payments remain false. The
+existing catalog import safeguard continues to require that status.
+
+The guarded pricing sync previews the exact 3 movie + 9 supported event policy
+set from local `cinehook_dev`; current Neon preview is read-only and reports 12
+policies to create, none retained. No Neon pricing rows have been written. New
+Render configuration, deployed code, webhook delivery to Render, policy apply,
+and hosted payment completion remain pending. See
+[staging-test-checkout.md](staging-test-checkout.md).
+
+Focused checks: 14 payment/config/staging tests pass, backend typecheck and
+build pass, and the staging policy preview verifies the approved database
+fingerprint and exact target counts. No provider payment was attempted.
 
 ## Latest checkpoint — development GST simulation, 13 October 2026
 
@@ -1225,3 +1244,52 @@ hosted guard still returns 404. **Stopped before apply: zero Neon catalogue writ
 No bypass, payment enablement, reset, deletion or unapproved upgrade occurred.
 Resume only after the guard is deployed and the same frozen plan remains valid;
 changed or expired inventory requires another review, not silent date edits.
+
+## 15 October, 14:26 IST — live safeguards pass; approved snapshot has expired sessions
+
+Verified directly and through Vercel: staging guard active, new payments disabled,
+PostgreSQL/Redis healthy. Read-only Neon identity and original approval/source
+hashes match; no metadata drift. Six movie shows and nine event sessions in the
+frozen approved snapshot have now started; 638/36 remain future at check time.
+Stopped before import, preserving frozen artifacts. Neon catalogue still empty;
+private counts unchanged. A refreshed preview/new approval is needed; no dates
+were advanced, no catalogue data written and no financial rules changed.
+
+## 15 October, 14:32 IST — refreshed preview passes, awaits new approval
+
+Archived the old approved frozen artifacts and refreshed the full read-only
+preview using the source database clock. Only newly expired sessions/prices
+were removed: six movie shows/18 prices and nine event sessions/27 prices.
+Exact comparison confirms every other catalogue group and every retained row
+unchanged. Planned: 6,998 cities, 77 movies, 3 theatres, 8 screens, 576 cinema
+seats, 638 shows/1,914 prices, 9 events, 612 event seats, 36 sessions/108 prices,
+24 browse cards; 69 ratings and 62 trailers preserved. All 186 media checks pass.
+
+Forty targeted tests, complete patched-source PostgreSQL rollback/idempotence/
+exact-readback test and additional real SQL/API rollback integration passed.
+Live staging/payment guard, target fingerprint and PostgreSQL/Redis readiness
+rechecked successfully. No code/financial changes or Neon catalogue writes.
+New approval hash: 6d8a50830de10b8446e70a35bc892a2f9e45f3008d53ba3f99e2fdb79034469f.
+Full data hash, all category counts, exclusions and immediate pre-apply expiry
+gate are in staging-refreshed-preview.md. Earliest session: 18:00 IST today.
+
+## 15 October — exact refreshed hash approved, catalogue imported and verified
+
+Imported hash 6d8a50830de10b8446e70a35bc892a2f9e45f3008d53ba3f99e2fdb79034469f
+after revalidating identity, live guard/health, recovery archive and session times.
+Corrected importer-only advisory void decoding and write isolation to obey the
+existing READ COMMITTED layout guard; failures/diagnostics rolled back. No trigger,
+booking/Redis/payment/refund rule or approved catalogue row was changed.
+
+Independent Neon readback: 6,998 cities, 77 movies, 3 theatres, 8 screens,
+576 cinema seats, 638 shows/1,914 prices, 9 events, 9 event venues, 30 sections,
+612 event seats, 36 sessions/108 prices, 24 browse cards, 3 performers and
+6 participants. All projected fields and eight/nine physical layouts matched;
+repeat inspection plans zero inserts. Private counts unchanged at 1/0/0/0.
+
+Forty targeted tests, actual CLI-lock/transaction-option full graph rollback,
+backend typecheck/build and diff checks passed. Vercel live catalogue, bilingual
+details, city search/selection, show-date filtering, 144-seat selection/deselection,
+sports sessions and public availability APIs checked successfully. No booking
+was created and no payment was attempted. Remaining tax/payment/invoice and
+new-registration/metadata gaps are explicit in staging-import-completed.md.

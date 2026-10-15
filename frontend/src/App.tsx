@@ -1,5 +1,4 @@
-import { BrowserRouter, Link, Route, Routes } from 'react-router'
-import { CatalogueNotice } from './components/CatalogueNotice'
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router'
 import { SessionProvider } from './app/SessionProvider'
 import { CityProvider } from './app/CityProvider'
 import { PublicLayout } from './components/PublicLayout'
@@ -21,12 +20,11 @@ import { WishlistPage } from './pages/WishlistPage'
 import { AccountPage } from './pages/AccountPage'
 import { HelpPage } from './pages/HelpPage'
 import { FocusedLayout } from './components/FocusedLayout'
-import { ChatbotPage } from './pages/ChatbotPage'
 import { EventPage } from './pages/EventPage'
 import { EventSeatsPage } from './pages/EventSeatsPage'
 
 export default function App() {
-  return <BrowserRouter><SessionProvider><CityProvider><CatalogueNotice /><NavigationEffects /><Routes>
+  return <BrowserRouter><SessionProvider><CityProvider><NavigationEffects /><Routes>
     <Route path="/login" element={<RouteScope><AuthPage /></RouteScope>} />
     <Route path="/register" element={<RouteScope><AuthPage register /></RouteScope>} />
     <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
@@ -39,7 +37,7 @@ export default function App() {
     <Route path="/wishlist" element={<Protected><PublicLayout><RouteScope><WishlistPage /></RouteScope></PublicLayout></Protected>} />
     <Route path="/account" element={<Protected><RouteScope><div><header className="focused-header"><Link className="secondary" to="/movies">← Back</Link></header><AccountPage /></div></RouteScope></Protected>} />
     <Route path="/help" element={<PublicLayout><HelpPage /></PublicLayout>} />
-    <Route path="/help/chat" element={<ChatbotPage />} />
+    <Route path="/help/chat" element={<Navigate to="/help" replace />} />
     <Route path="/movies/:id" element={<PublicLayout><RouteScope><MoviePage /></RouteScope></PublicLayout>} />
     <Route path="/shows/:id/seats" element={<FocusedLayout><RouteScope><SeatsPage /></RouteScope></FocusedLayout>} />
     <Route path="/bookings" element={<Protected><PublicLayout><BookingsPage /></PublicLayout></Protected>} />

@@ -1,5 +1,36 @@
 # Approved staging release — 15 October 2026
 
+**Current result: exact refreshed catalogue imported and independently verified.**
+See [completed import](staging-import-completed.md) for actual Neon counts,
+readback/idempotence evidence, importer-only corrections and live-site checks.
+The approved hash was 6d8a50830de10b8446e70a35bc892a2f9e45f3008d53ba3f99e2fdb79034469f.
+Payments remain disabled. All blocked/awaiting checkpoints below are historical.
+
+**Historical pre-import checkpoint:** the refreshed preview was ready and
+awaited approval. The owner subsequently approved the exact hash above and the
+catalogue import completed; see [completed import](staging-import-completed.md).
+The frozen [14:32 IST preview](staging-refreshed-preview.md) remains as the
+record of what was approved.
+
+## Latest verification — 15 October, 14:26 IST: snapshot expiry blocks import
+
+The owner reports Render commit 1ae4374 is live. Direct and Vercel-proxied
+checks now both return HTTP 200: catalogue mode staging, newPaymentsAllowed
+false, matching pinned fingerprint; readiness reports database up and redis up.
+A separate read-only Neon transaction reverified database/role/schema/port,
+the exact original approved plan and source hashes, and zero metadata drift.
+
+The frozen snapshot is no longer future-only: six of its 644 movie shows and
+nine of its 45 event sessions have started. At 14:26 IST, 638 movie shows and
+36 event sessions remained future. No dates were shifted and no approved
+snapshot artifact was overwritten. Every Neon catalogue model remains empty;
+private counts remain one user and zero bookings/payments/refunds.
+
+**Stopped before apply.** The deployment blocker below is resolved, but check 5
+(snapshot validity) failed. A refreshed read-only preview must explicitly exclude
+expired sessions and attached prices, preserve all other approved content, and
+receive approval for its new hash before import. No code or financial rules changed.
+
 ## Current result: blocked by Render; catalogue not imported
 
 The owner explicitly approved the reviewed full-parity import and required

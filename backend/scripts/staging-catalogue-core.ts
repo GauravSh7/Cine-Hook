@@ -2,6 +2,11 @@ import type { Prisma } from '../src/generated/prisma/client.js';
 import { inventoryCounts, type CatalogueGroup, type CatalogueModel, type ImportRow } from './staging-manifest.js';
 import { assertCatalogueGroups } from './staging-shape.js';
 
+export function stagingTransactionOptions(mode:'apply'|'dry-run') {
+  // Existing show/layout SQL guards require READ COMMITTED for writes.
+  return {isolationLevel:mode==='apply'?'ReadCommitted' as const:'RepeatableRead' as const,maxWait:45000,timeout:180000};
+}
+
 type Store = { findMany(args: unknown): Promise<ImportRow[]>; createMany(args: unknown): Promise<{count: number}>; count(args: unknown): Promise<number> };
 const value = (v: unknown) => v instanceof Date ? v.toISOString() : typeof v === 'string' ? v.toLowerCase() : JSON.stringify(v);
 const same = (a: ImportRow, b: ImportRow, keys: string[]) => keys.every(key => value(a[key]) === value(b[key]));

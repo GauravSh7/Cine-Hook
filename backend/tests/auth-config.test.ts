@@ -12,5 +12,5 @@ it('rejects invalid token lifetime without exposing configuration values', () =>
   for (const value of ['0', '-1', 'abc', '86401']) {
     expect(() => parseConfig({ ...valid, JWT_EXPIRES_IN_SECONDS: value })).toThrow(/JWT_EXPIRES_IN_SECONDS/);
   }
-  expect(parseConfig(valid).jwtExpiresInSeconds).toBe(3600);
+  expect(parseConfig(valid).jwtExpiresInSeconds).toBe(86400);
 });

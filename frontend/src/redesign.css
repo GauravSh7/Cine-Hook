@@ -83,6 +83,7 @@ main, section, article { min-width: 0; }
 .footer-content .footer-brand { border: 0; text-align: right; padding-left: 0; }
 .footer-content .footer-brand .brand { font-size: 25px; }
 .footer-legal { padding: 18px 24px; font-size: 11px; color: #817c87; background: transparent; }
+.tmdb-attribution { padding: 0 24px 16px; color: #817c87; font-size: 10px; }
 .footer-legal .accent { margin-right: 6px; }
 .detail-feature { position: relative; isolation: isolate; display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 40px; padding: 42px; border-radius: 12px; overflow: hidden; background: #19171e; }
 .detail-backdrop, .detail-shade { position: absolute; inset: 0; z-index: -2; }
@@ -152,7 +153,7 @@ main, section, article { min-width: 0; }
   .catalog-section { margin-top: 32px; }.section-heading h2 { font-size: 21px; }.section-heading p { font-size: 11px; max-width: 230px; }.section-heading { gap: 12px; margin-bottom: 16px; }
   .movie-rail { grid-auto-columns: calc((100% - 14px)/2.15); gap: 14px; }.movie-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px 12px; }
   .card-copy { padding: 12px 10px 8px; }.card-copy h3 { font-size: 13px; min-height: 35px; }.card-copy p { font-size: 10px; }.card-action { padding: 0 10px 10px; }.card-action .btn, .card-action .secondary { font-size: 11px; min-height: 40px; }
-  .footer-content { grid-template-columns: 1fr; padding: 30px 24px; gap: 28px; }.footer-content .footer-brand { text-align: left; padding-left: 40px; }.footer-legal { text-align: left; padding-inline: 24px; line-height: 1.8; }
+  .footer-content { grid-template-columns: 1fr; padding: 30px 24px; gap: 28px; }.footer-content .footer-brand { text-align: left; padding-left: 40px; }.footer-legal { text-align: left; padding-inline: 24px; line-height: 1.8; }.tmdb-attribution { flex-wrap: wrap; padding-inline: 16px; }
   .detail-feature { grid-template-columns: 120px minmax(0,1fr); gap: 20px; padding: 22px; }.detail-copy { align-self: start; }.detail-copy h1 { font-size: 28px; letter-spacing: -.8px; }.detail-copy .eyebrow { font-size: 8px; letter-spacing: 1px; }.detail-metadata { gap: 5px; margin-top: 12px; font-size: 11px; }.detail-genres { font-size: 11px; }.detail-synopsis { font-size: 12px; margin-top: 14px; }.rating-note { font-size: 10px; margin: 14px 0; }.detail-copy .wishlist-button { font-size: 11px; padding: 8px; }
   .theatre-shows { grid-template-columns: 1fr; padding: 20px; }.show-selection .section-heading { align-items: start; }.show-selection .section-heading > button { max-width: 145px; font-size: 11px; }.date-strip { gap: 8px; }.date-strip button { min-width: 66px; padding-inline: 12px; }
   .focused-header { padding: 14px 20px; gap: 12px; }.focused-header > span { display: none; }.focused-header .brand { font-size: 24px; }.focused-header .secondary { padding: 8px 12px; }

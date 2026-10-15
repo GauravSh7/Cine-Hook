@@ -14,7 +14,7 @@ const createSchema = (approvedStagingFingerprint: string) => z.object({
   DATABASE_URL: connectionUrl(['postgres:', 'postgresql:']),
   REDIS_URL: connectionUrl(['redis:', 'rediss:']),
   JWT_SECRET: z.string().min(32).refine(value => value.trim().length >= 32),
-  JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().min(1).max(86400).default(3600),
+  JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().min(1).max(86400).default(86400),
   GOOGLE_CLIENT_ID: z.preprocess(value => typeof value === 'string' && !value.trim() ? undefined : value,
     z.string().max(256).regex(/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/).optional()),
   TMDB_READ_ACCESS_TOKEN: optionalCredential(1),
