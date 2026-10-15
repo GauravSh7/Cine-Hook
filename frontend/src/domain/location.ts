@@ -3,6 +3,8 @@ import type { City } from '../api/types'
 // Approximate city centres. Match the full identity, never guess by a partial name.
 const centres: Record<string, readonly [number, number]> = {
   'IN|Delhi|New Delhi': [28.6139, 77.209],
+  'IN|Uttar Pradesh|Greater Noida': [28.4744, 77.504],
+  'IN|Uttar Pradesh|Noida': [28.5355, 77.391],
   'IN|Maharashtra|Mumbai': [19.076, 72.8777],
   'IN|Karnataka|Bengaluru': [12.9716, 77.5946],
 }

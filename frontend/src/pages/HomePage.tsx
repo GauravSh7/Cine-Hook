@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { catalogApi } from '../api/catalog'
 import { useCity } from '../app/city-context'
@@ -10,6 +10,32 @@ import { MovieRail } from '../components/MovieRail'
 import { EmptyState, ErrorState, Loading } from '../components/feedback'
 import { DiscoveryLoading } from '../components/DiscoveryLoading'
 import { useSession } from '../app/session-context'
+import { nearestSupportedCity } from '../domain/location'
+import type { City } from '../api/types'
+
+const LOCATION_CITY_CANDIDATES = [
+  { name: 'Greater Noida', state: 'Uttar Pradesh' }, { name: 'Noida', state: 'Uttar Pradesh' },
+  { name: 'New Delhi', state: 'Delhi' }, { name: 'Mumbai', state: 'Maharashtra' }, { name: 'Bengaluru', state: 'Karnataka' },
+]
+const normalizeCity = (value: string) => value.normalize('NFKD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+async function nearestCityWithCinemaInventory(latitude: number, longitude: number, signal: AbortSignal) {
+  const matches = await Promise.all(LOCATION_CITY_CANDIDATES.map(async candidate => {
+    try {
+      const result = await catalogApi.cities({ search: candidate.name, limit: 20 }, signal)
+      const city = result.items.find(item => normalizeCity(item.name) === normalizeCity(candidate.name) && normalizeCity(item.state) === normalizeCity(candidate.state))
+      if (!city) return undefined
+      const theatres = await catalogApi.theatres({ cityId: city.id, limit: 1 }, signal)
+      return theatres.items.length ? city : undefined
+    } catch { return undefined }
+  }))
+  return nearestSupportedCity(matches.filter((item): item is City => Boolean(item)), latitude, longitude)
+}
+
+function currentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject,
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 }))
+}
 
 function uniqueTitles(items: Awaited<ReturnType<typeof catalogApi.movies>>['items']) {
   const seen = new Set<string>()
@@ -25,12 +51,33 @@ function uniqueTitles(items: Awaited<ReturnType<typeof catalogApi.movies>>['item
 export function HomePage() {
   const city = useCity(), session = useSession()
   const welcomeLoading = session.status === 'anonymous'
-  const cityLabel = city.selectedCity?.name ?? ''
-  if (city.loading) return welcomeLoading ? <DiscoveryLoading phase="location" cityName={cityLabel} /> : <main className="page-shell"><Loading label="Loading cities…" /></main>
+  const [locationCheckDone, setLocationCheckDone] = useState(() => {
+    try { return sessionStorage.getItem('cinehook.city') !== null || sessionStorage.getItem('cinehook.location-auto-attempted') === '1' } catch { return true }
+  })
+  useEffect(() => {
+    if (city.loading || locationCheckDone) return
+    if (city.error || city.selectedCity) { setLocationCheckDone(true); return }
+    let active = true
+    const controller = new AbortController()
+    const finish = () => { if (active) setLocationCheckDone(true) }
+    if (!navigator.geolocation) { finish(); return () => { active = false; controller.abort() } }
+    void currentPosition().then(async position => {
+      if (!active) return
+      const supported = await nearestCityWithCinemaInventory(position.coords.latitude, position.coords.longitude, controller.signal)
+      if (active && !controller.signal.aborted) {
+        try { sessionStorage.setItem('cinehook.location-auto-attempted', '1') } catch { /* Per-tab convenience only. */ }
+        let cityWasChosen = false
+        try { cityWasChosen = sessionStorage.getItem('cinehook.city') !== null } catch { /* Continue with the in-memory preference. */ }
+        if (!cityWasChosen && supported) city.chooseCity(supported)
+      }
+    }).catch(() => undefined).finally(finish)
+    return () => { active = false; controller.abort() }
+  }, [city.loading, city.error, city.selectedCity, city.chooseCity, locationCheckDone])
+  if (city.loading || !locationCheckDone) return welcomeLoading ? <DiscoveryLoading status="Detecting your location…" /> : <main className="page-shell"><Loading label="Loading movies…" /></main>
   if (city.error) return <main className="page-shell"><ErrorState error={city.error} retry={city.retry} /></main>
-  return <MovieCatalog key={city.cityId} welcomeLoading={welcomeLoading} cityName={cityLabel} />
+  return <MovieCatalog key={city.cityId} welcomeLoading={welcomeLoading} />
 }
-function MovieCatalog({ welcomeLoading, cityName }: { welcomeLoading: boolean; cityName: string }) {
+function MovieCatalog({ welcomeLoading }: { welcomeLoading: boolean }) {
   const [params, setParams] = useSearchParams(), { cityId } = useCity()
   const now = useNow()
   const search = params.get('search') ?? '', language = params.get('language') ?? '', genre = params.get('genre') ?? ''
@@ -50,8 +97,16 @@ function MovieCatalog({ welcomeLoading, cityName }: { welcomeLoading: boolean; c
     return allMovies.map(movie => ({ ...movie, bookingAvailability: cityMatches.get(movie.id) ?? { cityId, hasShows: false } }))
   }, [search, language, genre, cityId])
   const resource = useAsync(`movies:${cityId}:${search}:${language}:${genre}`, load)
-  if (resource.loading) return welcomeLoading ? <DiscoveryLoading phase="catalogue" cityName={cityName} /> : <main className="page-shell"><Loading label="Loading movies…" /></main>
+  const [offersReady, setOffersReady] = useState(false)
+  useEffect(() => {
+    if (!resource.data || resource.error) { setOffersReady(false); return }
+    setOffersReady(false)
+    const timer = window.setTimeout(() => setOffersReady(true), 350)
+    return () => window.clearTimeout(timer)
+  }, [resource.data, resource.error])
+  if (resource.loading) return welcomeLoading ? <DiscoveryLoading status="Setting up cinemas, movies and shows…" /> : <main className="page-shell"><Loading label="Loading movies…" /></main>
   if (resource.error) return <main className="page-shell"><ErrorState error={resource.error} retry={resource.reload} /></main>
+  if (welcomeLoading && !offersReady) return <DiscoveryLoading status="Finding offers for you…" />
   const movies = uniqueTitles(resource.data!)
   const oneYearAgo = new Date(now)
   oneYearAgo.setUTCFullYear(oneYearAgo.getUTCFullYear() - 1)

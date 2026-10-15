@@ -14,14 +14,14 @@ export function CityProvider({ children }: { children: ReactNode }) {
   const cities = resource.data?.items ?? []
   const selectedCity = savedRecord ?? cities.find(city => city.id === saved) ?? null
   const cityId = selectedCity?.id ?? ''
-  const chooseCity = (next: City | null) => {
+  const chooseCity = useCallback((next: City | null) => {
     setSaved(next?.id ?? ''); setSavedRecord(next)
     try { sessionStorage.setItem('cinehook.city', next?.id ?? ''); if (next) sessionStorage.setItem('cinehook.city-record', JSON.stringify(next)); else sessionStorage.removeItem('cinehook.city-record') } catch { /* Optional preference only. */ }
-  }
-  const choose = (id: string) => {
+  }, [])
+  const choose = useCallback((id: string) => {
     if (id === '') { chooseCity(null); return }
     const match = cities.find(city => city.id === id)
     if (match) chooseCity(match)
-  }
+  }, [cities, chooseCity])
   return <CityContext.Provider value={{ cities, cityId, selectedCity, loading: resource.loading, choose, chooseCity, error: resource.error, retry: resource.reload }}>{children}</CityContext.Provider>
 }
