@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { AppError } from '../../errors/app-error.js';
-import type { PasswordRecoveryStore, PasswordRecoveryUsers, RecoveryMailer, SessionGuard } from './password-reset.types.js';
+import type { PasswordRecoveryStore, PasswordRecoveryUsers, RecoveryMailer, RecoveryUser, SessionGuard } from './password-reset.types.js';
 import { credentialTag } from './password-credential.js';
 import { RecoveryDeliveryError } from './password-reset.mailer.js';
 
@@ -12,22 +12,29 @@ export class PasswordResetService {
     private readonly sessions: SessionGuard, private readonly options: { secret: string; frontendOrigin: string; mailer?: RecoveryMailer }) {}
   private hash(value: string) { return createHash('sha256').update(value).digest('hex'); }
   private tag(hash: string) { return credentialTag(this.options.secret, hash); }
+  private recoveryTag(user: RecoveryUser) {
+    if (user.passwordHash) return this.tag(user.passwordHash);
+    // Bind password initialization to this existing verified Google identity,
+    // not a shared null-password marker. Never create or merge users here.
+    return createHmac('sha256', this.options.secret)
+      .update(JSON.stringify(['cinehook:google-password-setup:v1', user.id, user.email, user.googleSubject])).digest('hex');
+  }
   private otpDigest(challenge: string, otp: string) {
     return createHmac('sha256', this.options.secret).update(`recovery-otp:${challenge}:${otp}`).digest('hex');
   }
   async requestOtp(email: string, address: string) {
     if (!this.options.mailer?.sendOtp || !this.store.saveOtp) throw new AppError(503, 'PASSWORD_RESET_UNAVAILABLE', 'Password reset email is not available yet. Please try again later.');
     const challengeId = randomBytes(32).toString('base64url');
-    const response = { challengeId, message: 'If this email has a password account, a reset code will be sent. Check your inbox.' };
+    const response = { challengeId, message: 'If this email has an eligible account, a verification code will be sent. Check your inbox.' };
     if (!await this.store.allowRequest(this.hash(email), this.hash(address))) {
       // Throttling depends only on submitted email/network counts, not account
       // existence. Preserve the browser's existing challenge on a rejected resend.
       throw new AppError(429, 'PASSWORD_RESET_RATE_LIMITED', 'Too many reset requests. Please wait before requesting another code.');
     }
     const user = await this.users.findByEmail(email);
-    if (!user?.passwordHash) return response;
+    if (!user || (!user.passwordHash && !user.googleSubject)) return response;
     const otp = randomInt(0, 1000000).toString().padStart(6, '0');
-    await this.store.saveOtp(this.hash(challengeId), { userId: user.id, credentialTag: this.tag(user.passwordHash), digest: this.otpDigest(challengeId, otp), attempts: 0 }, 600);
+    await this.store.saveOtp(this.hash(challengeId), { userId: user.id, credentialTag: this.recoveryTag(user), digest: this.otpDigest(challengeId, otp), attempts: 0 }, 600);
     void this.options.mailer.sendOtp(user.email, otp).catch((error: unknown) => {
       console.warn(JSON.stringify({ event: 'password_recovery_delivery_failed',
         ...(error instanceof RecoveryDeliveryError ? { provider: 'brevo', code: error.code } : {}) }));
@@ -62,10 +69,10 @@ export class PasswordResetService {
     const evidence = this.store.peek ? await this.store.peek(this.hash(token)) : await this.store.consume(this.hash(token));
     if (!evidence) throw invalid();
     const user = await this.users.findById(evidence.userId);
-    if (!user?.passwordHash) throw invalid();
-    const actual = this.tag(user.passwordHash);
+    if (!user || (!user.passwordHash && !user.googleSubject)) throw invalid();
+    const actual = this.recoveryTag(user);
     if (!/^[a-f0-9]{64}$/.test(evidence.credentialTag) || !timingSafeEqual(Buffer.from(actual), Buffer.from(evidence.credentialTag))) throw invalid();
-    if (await bcrypt.compare(password, user.passwordHash)) {
+    if (user.passwordHash && await bcrypt.compare(password, user.passwordHash)) {
       throw new AppError(400, 'PASSWORD_REUSED', 'Your new password must be different from your current password.');
     }
     // Consume atomically only after validation; rejecting a reused password must
@@ -75,6 +82,7 @@ export class PasswordResetService {
     // Revoke before DB mutation so a Redis failure cannot leave old access live after reset.
     await this.sessions.revoke(user.id, this.tag(passwordHash));
     if (!await this.users.replacePassword(user.id, user.passwordHash, passwordHash)) throw invalid();
-    return { message: 'Your password has been changed. Sign in with your new password.' };
+    return { message: user.passwordHash ? 'Your password has been changed. Sign in with your new password.'
+      : 'Your password has been created. You can sign in with your password or Google.' };
   }
 }

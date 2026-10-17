@@ -1311,3 +1311,14 @@ resend invalidation, concurrent verification, grant consumption and request
 throttling. Focused security review found no important defects. Brevo delivery to
 two external accounts was confirmed earlier; hosted OTP end-to-end verification
 still requires the backend/frontend deployment of this change.
+
+### Google-only first-password setup
+
+Approved extension: an existing Google-only account may use the same verified
+email OTP flow to create its first password. Proof binds the existing user and
+Google identity; conditional NULL-password updates prevent concurrent overwrite.
+Both sign-in methods keep the same user ID, bookings and wishlist. No account
+creation/merging, database migration, financial change or new environment setting.
+829 backend and 265 frontend tests, both typechecks/builds and the real local
+Redis OTP integration passed. Security review found no important defects.
+Hosted delivery and personal Google login are not claimed by these local tests.

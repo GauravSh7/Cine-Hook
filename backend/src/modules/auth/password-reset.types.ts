@@ -1,8 +1,8 @@
-export interface RecoveryUser { id: string; email: string; passwordHash: string | null }
+export interface RecoveryUser { id: string; email: string; passwordHash: string | null; googleSubject?: string | null }
 export interface PasswordRecoveryUsers {
   findByEmail(email: string): Promise<RecoveryUser | null>;
   findById(id: string): Promise<RecoveryUser | null>;
-  replacePassword(id: string, expectedHash: string, passwordHash: string): Promise<boolean>;
+  replacePassword(id: string, expectedHash: string | null, passwordHash: string): Promise<boolean>;
 }
 export interface RecoveryToken { userId: string; credentialTag: string }
 export interface RecoveryOtp extends RecoveryToken { digest: string; attempts: number }

@@ -52,7 +52,7 @@ export function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
   }
   return <main className="auth-page auth-focused"><div className="auth-home"><Link className="secondary" to="/login">← Back to login</Link></div>
     <section className="panel recovery-panel"><h1 className="text-3xl font-semibold">{step === 'otp' ? 'Check your email' : step === 'password' ? 'Choose a new password' : 'Forgot your password?'}</h1>
-      <p className="muted mt-3">{step === 'email' ? (reset ? 'Request a new code to reset your password.' : 'Enter your account email to receive a verification code.') : step === 'otp' ? 'Enter the six-digit code. It expires in 10 minutes.' : step === 'password' ? 'Use a password different from your current password.' : ''}</p>
+      <p className="muted mt-3">{step === 'email' ? (reset ? 'Request a new code to set or reset your password.' : 'Enter your account email to receive a verification code.') : step === 'otp' ? 'Enter the six-digit code. It expires in 10 minutes.' : step === 'password' ? 'Choose a strong password. If you already have one, use a different password.' : ''}</p>
       {message && <p role="status" className="mt-4">{message}</p>}
       {step === 'done' ? <Link className="btn mt-5" to="/login">Back to login</Link> : <form className="mt-6 space-y-4" onSubmit={submit}>
         {step === 'email' && <label className="block">Email address<input className="input mt-2" type="email" maxLength={254} autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} required disabled={busy} /></label>}

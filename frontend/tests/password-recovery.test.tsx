@@ -18,11 +18,14 @@ it('opens forgot password and sends the email without sharing a login token', as
 })
 it.each(['/reset-password', '/forgot-password'])('requires OTP verification and keeps success visible after logout on %s', async path => {
   const token = 'a'.repeat(43)
+  const successMessage = path === '/forgot-password'
+    ? 'Your password has been created. You can sign in with your password or Google.'
+    : 'Your password has been changed. Sign in with your new password.'
   sessionStorage.setItem('cinehook.access-token', 'current-test-session')
   window.history.replaceState({}, '', `${path}#token=${token}`)
   const calls = mockApi(path => path === '/api/auth/forgot-password' ? ok({ challengeId: 'c'.repeat(43), message: 'Check your inbox.' }, 202)
     : path === '/api/auth/verify-reset-otp' ? ok({ token, message: 'Verified.' })
-    : path === '/api/auth/reset-password' ? ok({ message: 'Your password has been changed. Sign in with your new password.' })
+    : path === '/api/auth/reset-password' ? ok({ message: successMessage })
     : path === '/api/auth/me' ? ok({ user }) : undefined)
   render(<App />)
   expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
@@ -41,7 +44,7 @@ it.each(['/reset-password', '/forgot-password'])('requires OTP verification and 
   await userEvent.clear(screen.getByLabelText('Confirm new password'))
   await userEvent.type(screen.getByLabelText('Confirm new password'), 'correct-password')
   await userEvent.click(screen.getByRole('button', { name: 'Reset password' }))
-  expect(await screen.findByRole('status')).toHaveTextContent('Your password has been changed')
+  expect(await screen.findByRole('status')).toHaveTextContent(successMessage)
   expect(window.location.hash).toBe('')
   expect(screen.queryByRole('button', { name: 'Reset password' })).not.toBeInTheDocument()
   expect(sessionStorage.getItem('cinehook.access-token')).toBeNull()

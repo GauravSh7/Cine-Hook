@@ -25,13 +25,21 @@ Before mail is configured, requesting a reset returns PASSWORD_RESET_UNAVAILABLE
 
 ## Request flow
 
-Login → Forgot password → enter email → POST /api/auth/forgot-password → origin/body validation → controller → recovery service → repository lookup → Brevo HTTPS email with a cryptographically random six-digit OTP. The API returns a random challenge ID, never the OTP. Redis stores a keyed HMAC of the challenge/code and a credential fingerprint, not the plaintext OTP. Challenges expire after 600 seconds. Requests are limited to five per account email/hour and 1,000 per network/hour; the UI also spaces resend clicks by one minute. Responses do not disclose account existence. Google-only accounts keep Google sign-in.
+Login → Forgot password → enter email → POST /api/auth/forgot-password → origin/body validation → controller → recovery service → repository lookup → Brevo HTTPS email with a cryptographically random six-digit OTP. The API returns a random challenge ID, never the OTP. Redis stores a keyed HMAC of the challenge/code and a credential fingerprint, not the plaintext OTP. Challenges expire after 600 seconds. Requests are limited to five per account email/hour and 1,000 per network/hour; the UI also spaces resend clicks by one minute. Responses do not disclose account existence. Existing Google-only accounts can create their first password after the same OTP proof, without losing Google sign-in.
 
 Delivery runs asynchronously so provider latency does not reveal account existence. The API accepts a request without guaranteeing inbox delivery. Sending is best-effort; an interrupted process can require requesting a new code. There is no durable email queue. Delivery failures log a fixed event and bounded provider code with no recipient, OTP, token, provider response or key.
 
 Enter OTP → POST /api/auth/verify-reset-otp with challengeId and otp. An atomic Redis Lua script permits at most five attempts, preserves the original expiry on wrong attempts, invalidates the challenge on the fifth failure, and consumes successful codes exactly once even under concurrent requests. Resending invalidates the preceding unverified challenge. Successful verification issues a random reset grant, stored only as a digest in Redis, expiring after at most five minutes and never later than the original OTP deadline. The browser keeps it only in component memory, never in URLs or storage. Refreshing requires a new code. Legacy URL fragments are erased, not accepted by the new UI.
 
 After verified OTP → new password and confirmation → POST /api/auth/reset-password → validation → credential fingerprint check → bcrypt comparison rejecting the current password → atomic Redis GETDEL → bcrypt cost 12 → shared session revocation → PostgreSQL conditional password replacement. Rejecting a reused password leaves the verified grant usable within its original TTL. The conditional update prevents different grants from concurrently overwriting each other. Reset does not sign the user in automatically. Temporary failures after token consumption require a new code.
+
+For first-password setup, the proof is bound by HMAC to the existing user ID,
+email and Google subject. A changed identity or newly created password invalidates
+old setup proof. The repository conditionally updates only password_hash when it
+is still NULL and the Google identity is present. It never inserts/merges users or
+changes Google subject, role, profile, bookings or wishlist. The same-password
+check applies only when a password already exists. Old sessions are revoked in
+either case. No schema migration or new provider configuration is needed.
 
 Access tokens created by password login include a server-signed credential tag. Middleware checks it against the current database credential, including logins racing a reset. Old sessions are revoked in Redis for the maximum token lifetime. Existing signed tokens remain schema-compatible; their normal expiry still applies. A Redis outage fails session checks closed with a safe temporary-unavailability error.
 
