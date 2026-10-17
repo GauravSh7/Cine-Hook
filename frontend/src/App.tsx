@@ -28,7 +28,7 @@ export default function App() {
   return <BrowserRouter><SessionProvider><CityProvider><NavigationEffects /><Routes>
     <Route path="/login" element={<RouteScope><AuthPage /></RouteScope>} />
     <Route path="/register" element={<RouteScope><AuthPage register /></RouteScope>} />
-    <Route path="/forgot-password" element={<RouteScope><PasswordRecoveryPage /></RouteScope>} />
+    <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
     <Route path="/reset-password" element={<PasswordRecoveryPage reset />} />
     <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
     <Route path="/movies" element={<PublicLayout><HomePage /></PublicLayout>} />

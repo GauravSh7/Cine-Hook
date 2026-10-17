@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AppError } from '../../errors/app-error.js';
-import type { PasswordRecoveryStore, RecoveryToken, SessionGuard } from './password-reset.types.js';
+import type { PasswordRecoveryStore, RecoveryToken, RecoveryOtp, SessionGuard } from './password-reset.types.js';
 
 interface RecoveryRedis {
   isReady: boolean;
@@ -30,9 +30,42 @@ export class PasswordResetStore implements PasswordRecoveryStore, SessionGuard {
   async save(tokenHash: string, value: RecoveryToken, seconds: number) {
     this.ready(); await this.redis.set(`auth:recovery:token:${tokenHash}`, JSON.stringify(value), { EX: seconds });
   }
+  async saveOtp(challengeHash: string, value: RecoveryOtp, seconds: number) {
+    this.ready();
+    await this.redis.eval(`local previous = redis.call('GET', KEYS[2])
+if previous then redis.call('DEL', previous) end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+redis.call('SET', KEYS[2], KEYS[1], 'EX', ARGV[2])
+return 1`, { keys: [`auth:recovery:otp:${challengeHash}`, `auth:recovery:latest:${value.userId}`], arguments: [JSON.stringify(value), String(seconds)] });
+  }
+  async verifyOtp(challengeHash: string, digest: string, grantHash: string) {
+    this.ready();
+    return Number(await this.redis.eval(`local raw = redis.call('GET', KEYS[1])
+if not raw then return 0 end
+local value = cjson.decode(raw)
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl <= 0 then redis.call('DEL', KEYS[1]); return 0 end
+value.attempts = value.attempts + 1
+if value.attempts > 5 then redis.call('DEL', KEYS[1]); return 0 end
+if value.digest ~= ARGV[1] then
+  if value.attempts >= 5 then redis.call('DEL', KEYS[1])
+  else redis.call('SET', KEYS[1], cjson.encode(value), 'PX', ttl) end
+  return 0
+end
+redis.call('DEL', KEYS[1])
+redis.call('SET', KEYS[2], cjson.encode({userId=value.userId, credentialTag=value.credentialTag}), 'PX', math.min(ttl, 300000))
+return 1`, { keys: [`auth:recovery:otp:${challengeHash}`, `auth:recovery:token:${grantHash}`], arguments: [digest] })) === 1;
+  }
   async consume(tokenHash: string) {
     this.ready();
     const value = await this.redis.getDel(`auth:recovery:token:${tokenHash}`);
+    if (!value) return null;
+    const parsed = recovery.safeParse(JSON.parse(value) as unknown);
+    return parsed.success ? parsed.data : null;
+  }
+  async peek(tokenHash: string) {
+    this.ready();
+    const value = await this.redis.get(`auth:recovery:token:${tokenHash}`);
     if (!value) return null;
     const parsed = recovery.safeParse(JSON.parse(value) as unknown);
     return parsed.success ? parsed.data : null;

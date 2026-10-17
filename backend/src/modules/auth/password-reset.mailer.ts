@@ -43,4 +43,8 @@ export class BrevoRecoveryMailer implements RecoveryMailer {
     await this.sendMessage(email, 'Reset your CineHook password',
       `Open this link to choose a new CineHook password:\n\n${resetUrl}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`);
   }
+  async sendOtp(email: string, otp: string) {
+    await this.sendMessage(email, 'Your CineHook password reset code',
+      `Your CineHook password reset code is:\n\n${otp}\n\nThis code expires in 10 minutes and can be used once. Never share it. If you did not request this code, ignore this email.`);
+  }
 }

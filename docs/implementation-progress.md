@@ -1293,3 +1293,21 @@ details, city search/selection, show-date filtering, 144-seat selection/deselect
 sports sessions and public availability APIs checked successfully. No booking
 was created and no payment was attempted. Remaining tax/payment/invoice and
 new-registration/metadata gaps are explicit in staging-import-completed.md.
+
+## 17 October 2026 — approved email OTP password recovery
+
+Replaced the public reset-link request with Brevo HTTPS six-digit OTP delivery,
+10-minute expiry, five atomic verification attempts, invalidation on resend and
+five email requests/hour. Verification issues an in-memory browser reset grant
+bounded by the original deadline (maximum five minutes). Password reuse is
+rejected without extending the grant; successful reset consumes it once,
+conditionally replaces the PostgreSQL credential and revokes previous sessions.
+The UI keeps the success message visible after logout. No new environment
+variables, schema changes or booking/payment changes. See password-recovery.md.
+
+Verification: 822 backend and 265 frontend unit/UI tests passed; both typechecks
+and builds passed. Real loopback Redis integration passed expiry, attempt limits,
+resend invalidation, concurrent verification, grant consumption and request
+throttling. Focused security review found no important defects. Brevo delivery to
+two external accounts was confirmed earlier; hosted OTP end-to-end verification
+still requires the backend/frontend deployment of this change.

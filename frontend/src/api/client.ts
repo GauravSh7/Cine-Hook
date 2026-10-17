@@ -15,7 +15,9 @@ export function getServerNow(): number { return Date.now() + serverOffsetMs }
 
 const safeMessages: Record<string, string> = {
   PASSWORD_RESET_UNAVAILABLE: 'Password reset email is currently unavailable. Please try again later or use Google sign-in for your linked account.',
-  PASSWORD_RESET_INVALID: 'This reset link is invalid or expired. Request a new link.',
+  PASSWORD_RESET_INVALID: 'This code or reset session is invalid or expired. Request a new code.',
+  PASSWORD_REUSED: 'Your new password must be different from your current password.',
+  PASSWORD_RESET_RATE_LIMITED: 'Too many reset requests. Please wait before requesting another code.',
   AUTH_TEMPORARILY_UNAVAILABLE: 'Sign-in is temporarily unavailable. Please try again.',
   GOOGLE_LINK_PROOF_REQUIRED:'Confirm your current password and choose the Google account with the same email. Then retry.',
   GOOGLE_LINK_CONFLICT:'This Google identity could not be linked. Sign in again and retry.',
