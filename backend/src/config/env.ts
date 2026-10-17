@@ -18,9 +18,10 @@ const createSchema = (approvedStagingFingerprint: string) => z.object({
   GOOGLE_CLIENT_ID: z.preprocess(value => typeof value === 'string' && !value.trim() ? undefined : value,
     z.string().max(256).regex(/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/).optional()),
   TMDB_READ_ACCESS_TOKEN: optionalCredential(1),
-  RESEND_API_KEY: optionalCredential(1),
+  BREVO_API_KEY: optionalCredential(1),
   PASSWORD_RESET_FROM: z.preprocess(value => typeof value === 'string' && !value.trim() ? undefined : value,
     z.string().email().max(254).optional()),
+  PASSWORD_RESET_FROM_NAME: z.string().trim().min(1).max(100).default('CineHook'),
   RAZORPAY_KEY_ID: optionalCredential(1),
   // This key is issued by the provider; only our chosen webhook/JWT secrets
   // follow the application's minimum-length policy.
@@ -77,8 +78,8 @@ export function parseConfig(env: Record<string, string | undefined>, approvedSta
     jwtExpiresInSeconds: result.data.JWT_EXPIRES_IN_SECONDS,
     googleClientId: result.data.GOOGLE_CLIENT_ID,
     tmdbReadAccessToken: result.data.TMDB_READ_ACCESS_TOKEN,
-    passwordResetMail: result.data.RESEND_API_KEY && result.data.PASSWORD_RESET_FROM
-      ? { apiKey: result.data.RESEND_API_KEY, from: result.data.PASSWORD_RESET_FROM } : undefined,
+    passwordResetMail: result.data.BREVO_API_KEY && result.data.PASSWORD_RESET_FROM
+      ? { apiKey: result.data.BREVO_API_KEY, from: result.data.PASSWORD_RESET_FROM, fromName: result.data.PASSWORD_RESET_FROM_NAME } : undefined,
     cloudinary: result.data.CLOUDINARY_CLOUD_NAME && result.data.CLOUDINARY_API_KEY && result.data.CLOUDINARY_API_SECRET
       ? { cloudName: result.data.CLOUDINARY_CLOUD_NAME, apiKey: result.data.CLOUDINARY_API_KEY, apiSecret: result.data.CLOUDINARY_API_SECRET }
       : undefined,

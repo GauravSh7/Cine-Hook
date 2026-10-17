@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { AppError } from '../../errors/app-error.js';
 import type { PasswordRecoveryStore, PasswordRecoveryUsers, RecoveryMailer, SessionGuard } from './password-reset.types.js';
 import { credentialTag } from './password-credential.js';
+import { RecoveryDeliveryError } from './password-reset.mailer.js';
 
 const invalid = () => new AppError(400, 'PASSWORD_RESET_INVALID', 'This reset link is invalid or expired. Request a new link.');
 const accepted = { message: 'If this email has a password account, a reset link will be sent. Please check your inbox.' };
@@ -22,9 +23,10 @@ export class PasswordResetService {
     const url = new URL('/reset-password', this.options.frontendOrigin); url.hash = `token=${token}`;
     // Accepted means queued for delivery, not delivered. Never expose account existence
     // through the provider's latency or an email-specific provider failure response.
-    void this.options.mailer.sendResetLink(user.email, url.toString()).catch(async () => {
+    void this.options.mailer.sendResetLink(user.email, url.toString()).catch(async (error: unknown) => {
       try { await this.store.consume(this.hash(token)); } catch { /* Token still expires after 15 minutes. */ }
-      console.warn(JSON.stringify({ event: 'password_recovery_delivery_failed' }));
+      console.warn(JSON.stringify({ event: 'password_recovery_delivery_failed',
+        ...(error instanceof RecoveryDeliveryError ? { provider: 'brevo', code: error.code } : {}) }));
     });
     return accepted;
   }

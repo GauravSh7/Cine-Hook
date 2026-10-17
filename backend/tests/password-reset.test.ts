@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { beforeAll, expect, it, vi } from 'vitest';
 import { PasswordResetService } from '../src/modules/auth/password-reset.service.js';
-import { ResendRecoveryMailer } from '../src/modules/auth/password-reset.mailer.js';
+import { BrevoRecoveryMailer } from '../src/modules/auth/password-reset.mailer.js';
 import { TokenService } from '../src/modules/auth/token.service.js';
 import type { RecoveryToken } from '../src/modules/auth/password-reset.types.js';
 
@@ -75,14 +75,40 @@ it('rejects validly signed access from before credential recovery but accepts a 
   await expect(denied.verifySession(token)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   expect(await signed.verifySession(token)).toEqual({ userId: f.record.id, role: 'USER' });
 });
-it('sends through the configured email API and converts provider failures to safe errors', async () => {
+it('sends recovery through the Brevo HTTPS API to each requested user', async () => {
   let sent: Record<string, unknown> = {};
-  const sender = new ResendRecoveryMailer({ apiKey: 'private-test-key', from: 'recovery@cinehook.example' }, async (input, init) => {
-    expect(input).toBe('https://api.resend.com/emails'); sent = JSON.parse(String(init?.body)) as Record<string, unknown>;
-    return new Response('{"id":"delivery-1"}', { status: 200 });
+  const sender = new BrevoRecoveryMailer({ apiKey: 'private-test-key', from: 'recovery@cinehook.example' }, async (input, init) => {
+    expect(input).toBe('https://api.brevo.com/v3/smtp/email'); sent = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(new Headers(init?.headers).get('api-key')).toBe('private-test-key');
+    expect(new Headers(init?.headers).has('Authorization')).toBe(false);
+    return new Response('{"messageId":"<delivery-1@brevo.example>"}', { status: 201 });
   });
   await sender.sendResetLink('reset@example.com', 'https://cinehook.example/reset-password#token=private');
-  expect(sent.to).toEqual(['reset@example.com']); expect(sent.text).toContain('expires in 15 minutes');
-  const failing = new ResendRecoveryMailer({ apiKey: 'private', from: 'recovery@cinehook.example' }, async () => new Response('sensitive failure', { status: 403 }));
+  expect(sent.to).toEqual([{ email: 'reset@example.com' }]); expect(sent.textContent).toContain('expires in 15 minutes');
+  expect(sent.sender).toEqual({ email: 'recovery@cinehook.example', name: 'CineHook' });
+  await sender.sendResetLink('second@example.net', 'https://cinehook.example/reset-password#token=second-private');
+  expect(sent.to).toEqual([{ email: 'second@example.net' }]);
+  const failing = new BrevoRecoveryMailer({ apiKey: 'private', from: 'recovery@cinehook.example' }, async () => new Response('sensitive failure', { status: 403 }));
   await expect(failing.sendResetLink('reset@example.com', 'https://cinehook.example')).rejects.toThrow('Password recovery email delivery failed.');
+});
+
+it.each([
+  [401, 'unauthorized', 'BREVO_AUTH_REJECTED'],
+  [400, 'sender not verified', 'BREVO_SENDER_REJECTED'],
+  [403, 'account not activated', 'BREVO_ACCOUNT_NOT_ACTIVATED'],
+  [400, 'quota exceeded', 'BREVO_QUOTA_EXCEEDED'],
+  [429, 'slow down', 'BREVO_RATE_LIMITED'],
+  [503, 'temporarily unavailable', 'BREVO_UNAVAILABLE'],
+])('classifies Brevo %s safely without exposing provider details', async (status, message, code) => {
+  const mailer = new BrevoRecoveryMailer({ apiKey: 'private', from: 'recovery@cinehook.example' }, async () =>
+    new Response(JSON.stringify({ message: `${message} private-recipient@example.com` }), { status }));
+  await expect(mailer.sendResetLink('reset@example.com', 'https://cinehook.example')).rejects.toMatchObject({
+    code, message: 'Password recovery email delivery failed.',
+  });
+});
+
+it('does not treat a malformed successful response as accepted delivery', async () => {
+  const mailer = new BrevoRecoveryMailer({ apiKey: 'private', from: 'recovery@cinehook.example' }, async () =>
+    new Response('{}', { status: 201 }));
+  await expect(mailer.sendResetLink('reset@example.com', 'https://cinehook.example')).rejects.toMatchObject({ code: 'BREVO_DELIVERY_REJECTED' });
 });

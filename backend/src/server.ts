@@ -31,7 +31,7 @@ import { BookingTargetRepository } from './modules/booking/booking-target.reposi
 import { PasswordResetRepository } from './modules/auth/password-reset.repository.js';
 import { PasswordResetStore } from './modules/auth/password-reset.store.js';
 import { PasswordResetService } from './modules/auth/password-reset.service.js';
-import { ResendRecoveryMailer } from './modules/auth/password-reset.mailer.js';
+import { BrevoRecoveryMailer } from './modules/auth/password-reset.mailer.js';
 import { credentialTag } from './modules/auth/password-credential.js';
 
 const config = parseConfig(process.env);
@@ -49,7 +49,7 @@ const recoveryStore = new PasswordResetStore(redis, async userId => {
 });
 const tokens = new TokenService({ secret: config.jwtSecret, expiresInSeconds: config.jwtExpiresInSeconds, sessions: recoveryStore });
 const recovery = new PasswordResetService(recoveryUsers, recoveryStore, recoveryStore,
-  { secret: config.jwtSecret, frontendOrigin: config.frontendOrigin, mailer: config.passwordResetMail ? new ResendRecoveryMailer(config.passwordResetMail) : undefined });
+  { secret: config.jwtSecret, frontendOrigin: config.frontendOrigin, mailer: config.passwordResetMail ? new BrevoRecoveryMailer(config.passwordResetMail) : undefined });
 const eventBooking = createEventBooking(prisma, redis);
 const booking = { bookings: new BookingGateway(new BookingTargetRepository(prisma), createBooking(prisma, redis).bookings, eventBooking) };
 const app = createApp({ frontendOrigin: config.frontendOrigin,
