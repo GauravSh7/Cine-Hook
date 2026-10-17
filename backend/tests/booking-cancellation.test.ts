@@ -24,6 +24,28 @@ it('owner cancellation policy preserves quote history and does not contact Redis
   expect(result.status).toBe('CANCELLED'); expect(f.records.get(f.bookingId)!.totalPaise).toBe(25000n);
   expect(f.records.get(f.bookingId)!.seats).toEqual(before.seats); expect(f.records.size).toBe(1);
 });
+it.each([[0, true], [86_399_999, true], [86_400_000, false], [86_400_001, false]] as const)('enforces original-age boundary %d through the service', async (age, allowed) => {
+  const f = await confirmed(); const original = f.records.get(f.bookingId)!;
+  f.state.now = new Date(original.createdAt.getTime() + age);
+  if (allowed) {
+    expect((await f.service.cancel(f.userId, f.bookingId, f.scope)).status).toBe('CANCELLED');
+    expect(f.allocations.size).toBe(0);
+  } else {
+    await expect(f.service.cancel(f.userId, f.bookingId, f.scope)).rejects.toMatchObject({ code: 'CANCELLATION_CLOSED' });
+    expect(f.records.get(f.bookingId)!.status).toBe('CONFIRMED');
+    expect(f.allocations.size).toBe(2);
+  }
+  expect(f.records.get(f.bookingId)!.createdAt).toEqual(original.createdAt);
+  expect(f.records.get(f.bookingId)!.seats).toEqual(original.seats);
+});
+it('rejects cancellation on the current Kolkata show date even within the original 24-hour window', async () => {
+  const f = await confirmed(); const original = f.records.get(f.bookingId)!;
+  f.state.now = new Date('2099-01-01T00:00:00+05:30');
+  f.records.set(original.id, { ...original, createdAt: new Date(f.state.now.getTime() - 60_000) });
+  await expect(f.service.cancel(f.userId, f.bookingId, f.scope)).rejects.toMatchObject({ code: 'CANCELLATION_CLOSED' });
+  expect(f.records.get(f.bookingId)!.status).toBe('CONFIRMED');
+  expect(f.allocations.size).toBe(2);
+});
 it.each(['equal', 'after'] as const)('rejects normal cancellation %s to show start', async point => {
   const f = await confirmed(); f.state.now = new Date(point === 'equal' ? f.show.startsAt : f.show.startsAt.getTime() + 1);
   await expect(f.service.cancel(f.userId, f.bookingId, f.scope)).rejects.toMatchObject({ status: 409, code: 'CANCELLATION_CLOSED' });

@@ -7,7 +7,7 @@ const quote={version:1,label:'Order summary',couponCode:'FIRST50',subtotalPaise:
 it('labels simulated tax bills and shows a zero coupon discount explicitly',async()=>{
   render(<CheckoutPricing quote={{...quote,simulated:true,paymentAllowed:false,couponCode:null,discountPaise:0}} busy={false} onCoupon={async()=>{}}/>);
   await userEvent.click(screen.getByText('Show Bill'));
-  expect(screen.getByText(/Test bill/)).toBeVisible();
+  expect(screen.getByText('DEMO RECEIPT — NOT A TAX INVOICE')).toBeVisible();
   expect(screen.getByText('Coupon discount')).toBeVisible();
 });
 it('combines matching admission taxes and displays a genuinely waived fee as free',async()=>{

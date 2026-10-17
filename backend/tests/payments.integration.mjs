@@ -17,6 +17,7 @@ import { AuthService } from '../dist/modules/auth/auth.service.js';
 import { TokenService } from '../dist/modules/auth/token.service.js';
 import { UserRepository } from '../dist/modules/auth/user.repository.js';
 import { HealthService } from '../dist/modules/health/health.service.js';
+import {legacyTicketPolicy} from './helpers/legacy-tax-fixture.mjs';
 
 const databaseUrl = process.env.PAYMENTS_TEST_DATABASE_URL;
 const redisUrl = process.env.SEAT_LOCK_TEST_REDIS_URL;
@@ -113,7 +114,7 @@ test('Payments HTTP with real PostgreSQL/Redis and actual Razorpay adapter on co
   };
   const checkDisposition = async (bookingId, status, reason) => {
     const financial = await prisma.payment.findUnique({ where: { bookingId }, include: { reconciliation: true, evidence: true } });
-    assert.equal(financial.status, 'SUCCESS'); assert.ok(financial.capturedAt); assert.ok(financial.bookingFinalizedAt);
+    assert.equal(financial.status, status==='CANCELLED'?'REFUND_PENDING':'SUCCESS'); assert.ok(financial.capturedAt); assert.ok(financial.bookingFinalizedAt);
     assert.equal((await prisma.booking.findUnique({ where: { id: bookingId } })).status, status);
     if (reason) { assert.equal(financial.reconciliation.reason, reason); assert.equal(financial.reconciliation.compensationRequired, true); }
     else assert.equal(financial.reconciliation, null);
@@ -124,11 +125,12 @@ test('Payments HTTP with real PostgreSQL/Redis and actual Razorpay adapter on co
     for (const id of [userId, otherUserId]) await prisma.user.create({ data: { id, name: 'Payment test', email: `payment-${id}@example.com`, passwordHash: 'integration-only-unusable-hash' } });
     await prisma.city.create({ data: { id: cityId, name: `Payment ${cityId}`, state: 'Test' } });
     await prisma.theatre.create({ data: { id: theatreId, cityId, name: 'Payment theatre', address: 'Test road' } });
+    await legacyTicketPolicy(prisma,theatreId);
     await prisma.screen.create({ data: { id: screenId, theatreId, name: 'Payment screen', capacity: 2 } });
     await prisma.seat.createMany({ data: seatIds.map((id, index) => ({ id, screenId, rowName: 'A', seatNumber: index + 1, seatType: index ? 'PREMIUM' : 'REGULAR' })) });
     await prisma.movie.create({ data: { id: movieId, title: `Payment ${movieId}`, description: 'Test', durationMinutes: 100, releaseDate: new Date('2026-01-01'), language: 'english', genres: ['drama'] } });
     await t.test('server amount, stable receipt/order and provider HTTP outside transactions', async () => {
-      const f = await fresh(); assert.equal(f.order.amount, 25000); assert.equal(f.response.body.data.order.keyId, credentials.keyId);
+      const f = await fresh(); assert.equal(f.order.amount, 25700); assert.equal(f.response.body.data.order.keyId, credentials.keyId);
       const creates = state.providerCreates; const repeated = await orderRequest(f.bookingId); assert.equal(repeated.status, 201);
       assert.equal(repeated.body.data.order.id, f.order.id); assert.equal(state.providerCreates, creates);
       assert.equal((await orderRequest(f.bookingId, app, otherToken)).status, 404);
@@ -180,7 +182,7 @@ test('Payments HTTP with real PostgreSQL/Redis and actual Razorpay adapter on co
       await checkDisposition(expiredId, 'FAILED', 'HOLD_EXPIRED'); assert.equal(await prisma.confirmedSeat.count({ where: { showId } }), 0);
       assert.equal(await redis.exists(seatIds.map(id => key(showId, id))), 0);
       const f = await fresh(); assert.equal((await request(app).delete(`/api/bookings/${f.bookingId}/hold`).set('Authorization', `Bearer ${token}`)).status, 200);
-      assert.equal((await verify(f.bookingId, payment(f.order))).status, 200); await checkDisposition(f.bookingId, 'FAILED', 'HOLD_RELEASED');
+      assert.equal((await verify(f.bookingId, payment(f.order))).status, 200); await checkDisposition(f.bookingId, 'CANCELLED', 'BOOKING_CANCELLED');
       assert.equal(await prisma.confirmedSeat.count({ where: { showId: f.showId } }), 0);
     });
     await t.test('verified capture corrects earlier financial failure; stale failure cannot downgrade SUCCESS', async () => {
@@ -189,8 +191,8 @@ test('Payments HTTP with real PostgreSQL/Redis and actual Razorpay adapter on co
       assert.equal((await store.findByBooking(f.bookingId)).status, 'FAILED');
       await request(app).delete(`/api/bookings/${f.bookingId}/hold`).set('Authorization', `Bearer ${token}`);
       const captured = { ...value, status: 'captured', captured: true }; providerPayments.set(value.id, captured);
-      assert.equal((await webhook(captured)).status, 200); await checkDisposition(f.bookingId, 'FAILED', 'HOLD_RELEASED');
-      assert.equal((await webhook(value, undefined, 'payment.failed')).status, 200); assert.equal((await store.findByBooking(f.bookingId)).status, 'SUCCESS');
+      assert.equal((await webhook(captured)).status, 200); await checkDisposition(f.bookingId, 'CANCELLED', 'BOOKING_CANCELLED');
+      assert.equal((await webhook(value, undefined, 'payment.failed')).status, 200); assert.equal((await store.findByBooking(f.bookingId)).status, 'REFUND_PENDING');
     });
     await t.test('SQL allocation collision rolls back the ticket but retains SUCCESS and compensation condition', async () => {
       const f = await fresh(), winner = await nativePending(f.showId, new Date(Date.now() + 300000), [seatIds[0]]);
@@ -237,7 +239,9 @@ test('Payments HTTP with real PostgreSQL/Redis and actual Razorpay adapter on co
       assert.equal(await redis.exists(seatIds.map(id => key(f.showId, id))), 2);
     });
   } finally {
+    try {
     // Delete only this run's fixture financial records before protected Booking cleanup.
+    await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe('SET LOCAL session_replication_role=replica');await tx.refundAttempt.deleteMany({where:{refund:{payment:{bookingId:{in:bookingIds}}}}});await tx.refund.deleteMany({where:{payment:{bookingId:{in:bookingIds}}}});await tx.bookingPricingQuote.deleteMany({where:{bookingId:{in:bookingIds}}});});
     await prisma.payment.deleteMany({ where: { bookingId: { in: bookingIds } } });
     await prisma.$executeRaw`UPDATE bookings SET status='CANCELLED',updated_at=clock_timestamp() WHERE show_id IN (SELECT id FROM shows WHERE movie_id=${movieId}::uuid) AND status='CONFIRMED'`;
     await prisma.booking.deleteMany({ where: { id: { in: bookingIds } } });
@@ -246,7 +250,9 @@ test('Payments HTTP with real PostgreSQL/Redis and actual Razorpay adapter on co
     await prisma.show.deleteMany({ where: { id: { in: showIds } } }); await prisma.seat.deleteMany({ where: { id: { in: seatIds } } });
     await prisma.screen.deleteMany({ where: { id: screenId } }); await prisma.theatre.deleteMany({ where: { id: theatreId } });
     await prisma.city.deleteMany({ where: { id: cityId } }); await prisma.movie.deleteMany({ where: { id: movieId } });
+    await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe('SET LOCAL session_replication_role=replica');await tx.firstBookingOffer.deleteMany({where:{userId:{in:[userId,otherUserId]}}});});
+    await prisma.pricingTaxPolicy.deleteMany({where:{key:`movie:${theatreId}:integration-ticket-only`}});
     await prisma.user.deleteMany({ where: { id: { in: [userId, otherUserId] } } });
-    if (redis.isOpen) redis.destroy(); await prisma.$disconnect();
+    } finally {if (redis.isOpen) redis.destroy(); await prisma.$disconnect();}
   }
 });

@@ -177,7 +177,7 @@ export class EventBookingService {
       if (context.booking.status === 'PENDING') return {status:'CANCELLED',failureCode:'CHECKOUT_CANCELLED'};
       if (context.booking.status !== 'CONFIRMED') throw new AppError(409, 'BOOKING_STATE', 'Only a confirmed booking can be cancelled here.');
       if (!context.session || !confirmedCancellationAllowed(context.booking.createdAt, context.session.startsAt, context.now)) {
-        throw new AppError(409, 'CANCELLATION_CLOSED', 'Cancellation is available for 24 hours after booking, when the session is on a later day and at least 24 hours away.');
+        throw new AppError(409, 'CANCELLATION_CLOSED', 'Cancellation is available for less than 24 hours after the original booking, before the session starts and never on the session date in Asia/Kolkata.');
       }
       return { status: 'CANCELLED' };
     });

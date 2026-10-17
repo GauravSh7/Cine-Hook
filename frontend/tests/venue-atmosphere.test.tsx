@@ -32,6 +32,22 @@ it('provides a neutral court for an unknown sport and retains missing inventory 
   expect(screen.queryByText(/illustration unavailable|persisted sections/)).not.toBeInTheDocument()
 })
 
+it('presents existing ticket tiers distinctly and keeps keyboard selection tied to the exact seat', async () => {
+  const toggled: string[] = []
+  const session = { ...eventSession, venue: { ...eventSession.venue, sections: eventSession.venue.sections.map(section => ({ ...section, seats: section.seats.map(seat => seat.id === physicalSeats[1]!.id ? { ...seat, ticketTier: 'PREMIUM' as const } : seat) })) } }
+  const seats = eventAvailability.seats.map(seat => seat.id === physicalSeats[1]!.id ? { ...seat, ticketTier: 'PREMIUM' as const } : seat)
+  const { container } = render(<EventVenueMap session={session} seats={seats} selected={[]} disabled={false} onToggle={id => toggled.push(id)} />)
+  expect(screen.getByText('REAR · Premium / Regular')).toBeVisible()
+  expect(container.querySelectorAll('[data-ticket-tier="VIP"]')).toHaveLength(1)
+  expect(container.querySelectorAll('[data-ticket-tier="PREMIUM"]')).toHaveLength(1)
+  expect(container.querySelectorAll('[data-ticket-tier="STANDARD"]')).toHaveLength(1)
+  const premium = screen.getByRole('button', { name: /Rear rows.*A1 available PREMIUM ₹400.00/ })
+  premium.focus()
+  await userEvent.keyboard('{Enter}')
+  expect(toggled).toEqual([physicalSeats[1]!.id])
+  expect(screen.getByRole('button', { name: /A4 booked STANDARD/ })).toBeDisabled()
+})
+
 it.each([{ capacity: 60, variant: 'medium' }, { capacity: 240, variant: 'grand' }])('uses real capacity $capacity for cinema atmosphere without adding seats', async ({ capacity, variant }) => {
   window.history.replaceState({}, '', `/shows/${ids.show}/seats`)
   mockApi(path => path === `/api/shows/${ids.show}` ? ok({ show: { ...show, screen: { ...show.screen, capacity } } }) : undefined)

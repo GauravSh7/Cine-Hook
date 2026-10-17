@@ -76,6 +76,7 @@ it('cancel payment cancels through the backend and stops the countdown', async (
   }); render(<App />)
   await userEvent.click(await screen.findByRole('button', { name: 'Cancel payment' }))
   await waitFor(() => expect(window.location.pathname).toBe(`/bookings/${ids.booking}`))
+  expect(await screen.findByRole('heading', { name: 'Booking cancelled' })).toBeVisible()
   expect(calls.find(call=>call.path.endsWith('/checkout/cancel'))?.options.method).toBe('POST')
   expect(calls.some(call => call.path === '/api/payments/order')).toBe(false)
   expect(screen.queryByRole('timer')).not.toBeInTheDocument()
@@ -91,6 +92,7 @@ it('provider failure cancels checkout through the backend instead of leaving a t
   vi.stubGlobal('Razorpay',class {on(_name:string,handler:()=>void){failed=handler}open(){}close(){}});
   render(<App/>);await userEvent.click(await screen.findByRole('button',{name:/^Proceed to payment/i}));await waitFor(()=>expect(failed).toBeDefined());await act(async()=>failed!());
   await waitFor(()=>expect(window.location.pathname).toBe(`/bookings/${ids.booking}`));
+  expect(await screen.findByRole('heading',{name:'Booking cancelled'})).toBeVisible();
   expect(calls.filter(c=>c.path.endsWith('/checkout/cancel'))).toHaveLength(1);expect(screen.queryByRole('timer')).not.toBeInTheDocument();
 });
 it('an expired backend deadline disables initiating payment', async () => {

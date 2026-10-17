@@ -7,6 +7,7 @@ import { useAsync } from '../app/use-async'
 import { ErrorState, Loading } from '../components/feedback'
 import { formatDateTime, money } from '../domain/time'
 import {publicVenueLabel} from '../domain/customer-copy'
+import '../components/venue-polish.css'
 
 export function SeatsPage() {
   const { id = '' } = useParams(), navigate = useNavigate(), session = useSession(), storageKey = `cinehook.seats.${id}`
@@ -42,8 +43,8 @@ export function SeatsPage() {
     <div className="cinema-auditorium" data-hall-variant={detail.screen.capacity >= 80 ? 'grand' : 'medium'}>
     <div className="cinema-hall-name"><span>{publicVenueLabel(detail.screen.name)}</span><small>{seats.length} seats · {rows.length} rows</small></div>
     <CinemaScreen />
-    <p className="cinema-map-hint muted">Face the screen. Scroll across to find your seat.</p>
-    <div className="seat-scroll" role="region" aria-label="Seat map, horizontally scrollable" tabIndex={0}>
+    <p className="cinema-map-hint muted" id="cinema-map-help">Screen at the front · Scroll across to explore. Tab to a seat, then Enter or Space to select.</p>
+    <div className="seat-scroll" role="region" aria-label="Seat map, horizontally scrollable" aria-describedby="cinema-map-help" tabIndex={0}>
       <div className="seat-grid">{rows.map((row, rowIndex) => {
         const rowSeats = seats.filter(seat => seat.rowName === row), tiers = [...new Set(rowSeats.map(seat => seat.seatType))].sort().join(' / ')
         const previousTiers = rowIndex ? [...new Set(seats.filter(seat => seat.rowName === rows[rowIndex - 1]).map(seat => seat.seatType))].sort().join(' / ') : ''
@@ -54,7 +55,7 @@ export function SeatsPage() {
           style={{ gridColumn: seat.seatNumber + 1 + (seat.seatNumber > aisleAfter ? 1 : 0), gridRow: 1 }}
           aria-label={`${seat.rowName}${seat.seatNumber} ${seat.availability === 'LOCKED' ? 'unavailable' : seat.availability.toLowerCase()} ${seat.seatType.toLowerCase()} ${money(seat.pricePaise)}`}
           aria-pressed={choice.includes(seat.id)} className={`seat seat-${seat.availability.toLowerCase()} ${choice.includes(seat.id) ? 'seat-selected' : ''}`}
-          onClick={() => toggle(seat.id)}>{seat.rowName}{seat.seatNumber}</button>)}</div></div>
+          onClick={() => toggle(seat.id)}>{seat.rowName}{seat.seatNumber}</button>)}<span className="row-label cinema-row-end" aria-hidden="true" style={{ gridColumn: maxSeat + 3, gridRow: 1 }}>{row}</span></div></div>
       })}</div>
     </div></div><div className="muted mt-10 flex flex-wrap justify-center gap-5 text-sm"><span>□ Available</span><span className="accent">■ Selected</span><span>■ Unavailable</span></div>
     <div className="muted mt-4 flex flex-wrap justify-center gap-4 text-sm">{detail.prices.map(price => <span key={price.seatType}>{price.seatType}: {money(price.pricePaise)} / seat</span>)}</div>

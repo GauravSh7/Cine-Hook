@@ -125,6 +125,7 @@ test('PostgreSQL payments: immutable quotes, capture dominance, evidence binding
         await c.query('SET LOCAL session_replication_role=replica');
         await c.query('DELETE FROM refund_attempts WHERE refund_id IN (SELECT id FROM refunds WHERE payment_id=ANY($1::uuid[]))',[paymentIds]);
         await c.query('DELETE FROM refunds WHERE payment_id=ANY($1::uuid[])',[paymentIds]);
+        await c.query('DELETE FROM first_booking_offers WHERE user_id=$1',[user]);
       });
       await pool.query('DELETE FROM payments WHERE id=ANY($1::uuid[])',[paymentIds]);
       await pool.query("UPDATE bookings SET status='CANCELLED' WHERE id=ANY($1::uuid[]) AND status='CONFIRMED'",[bookingIds]);

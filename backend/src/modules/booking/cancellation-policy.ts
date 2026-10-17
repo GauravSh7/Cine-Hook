@@ -8,5 +8,5 @@ export function confirmedCancellationAllowed(createdAt: Date, startsAt: Date, no
   const age = now.getTime() - createdAt.getTime();
   const timeToShow = startsAt.getTime() - now.getTime();
   return Number.isFinite(age) && age >= 0 && age < WINDOW_MS
-    && timeToShow >= WINDOW_MS && indiaDate(createdAt) !== indiaDate(startsAt);
+    && timeToShow > 0 && indiaDate(now) !== indiaDate(startsAt);
 }

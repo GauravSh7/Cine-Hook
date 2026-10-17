@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { bookingApi } from '../api/booking'
+import { pricingApi } from '../api/pricing'
 import { useSession } from '../app/session-context'
 import { useAsync } from '../app/use-async'
 import { useCountdown } from '../app/use-countdown'
@@ -23,6 +24,8 @@ export function BookingPage() {
   const { id = '' } = useParams(), session = useSession()
   const load = useCallback((signal: AbortSignal) => bookingApi.summary(id, signal), [id])
   const resource = useAsync(`booking:${session.user!.id}:${id}`, load, 5000)
+  const loadQuote = useCallback((signal: AbortSignal) => pricingApi.quote(id, signal), [id])
+  const receipt = useAsync(`receipt:${session.user!.id}:${id}`, loadQuote)
   const remaining = useCountdown(resource.data?.booking.expiresAt ?? '')
   const cancellationWindow = useCountdown(resource.data ? new Date(Date.parse(resource.data.booking.createdAt) + 24 * 60 * 60 * 1000).toISOString() : '') > 0
   const [confirm, setConfirm] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<Error | null>(null)
@@ -66,9 +69,11 @@ export function BookingPage() {
       : state === 'cancelled' ? 'Your booking has been cancelled.' : 'Check your payment progress here. A ticket is ready only when your booking is confirmed.'}</p>
   </div>
     {state === 'pending' && <p className="muted mt-5 text-center text-sm">Tickets are confirmed after successful payment. If the booking cannot be completed, your payment will be refunded. Timing depends on your bank and payment provider.</p>}
+    {receipt.data?.simulated && <p className="mt-6 text-center font-semibold">DEMO RECEIPT — NOT A TAX INVOICE</p>}
     <div className="mt-8"><BookingFacts summary={summary} /></div>
+    {receipt.error && state === 'confirmed' && <p className="muted mt-4 text-center text-sm">Receipt details could not be loaded. <button className="underline" onClick={receipt.reload}>Retry receipt</button></p>}
     <div className="mt-7 flex flex-wrap justify-center gap-3 print:hidden">
-      {state === 'confirmed' && <button className="btn" onClick={() => window.print()}>Download ticket / print</button>}
+      {state === 'confirmed' && <button className="btn" disabled={receipt.loading || !!receipt.error} onClick={() => window.print()}>Download ticket / print</button>}
       <Link className="secondary" to="/bookings">View My Bookings</Link>
       {booking.status === 'PENDING' && remaining > 0 && (!payment || payment.status === 'PENDING') && <Link className="btn" to={`/bookings/${id}/checkout`}>Continue checkout • {formatCountdown(remaining)}</Link>}
       {canCancel && <button ref={actionRef} className="danger-outline" onClick={() => setConfirm(true)} disabled={busy}>Cancel booking</button>}

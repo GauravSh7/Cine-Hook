@@ -102,9 +102,9 @@ test('Booking API with actual PostgreSQL and Redis: holds, price snapshots, owne
     await t.test('release ends a pending hold without deleting the booking and allows another hold', async () => {
       const showId = await newShow(); const old = await created(showId);
       const response = await release(old.id); assert.equal(response.status, 200);
-      assert.equal(response.body.data.booking.status, 'FAILED'); assert.equal(response.body.data.booking.failureCode, 'HOLD_RELEASED');
+      assert.equal(response.body.data.booking.status, 'CANCELLED'); assert.equal(response.body.data.booking.failureCode, 'CHECKOUT_CANCELLED');
       assert.equal(await redis.exists(seatIds.map(id => key(showId, id))), 0);
-      await assert.rejects(service.confirm(old.id), { status: 409, code: 'HOLD_RELEASED' });
+      await assert.rejects(service.confirm(old.id), { status: 409, code: 'CHECKOUT_CANCELLED' });
       assert.equal(await prisma.confirmedSeat.count({ where: { showId } }), 0);
       await created(showId);
     });
@@ -162,7 +162,7 @@ test('Booking API with actual PostgreSQL and Redis: holds, price snapshots, owne
         assert.equal(race.filter(result => result.status === 'fulfilled').length, 1);
         assert.equal(race.find(result => result.status === 'rejected').reason.status, 409);
         const final = await prisma.booking.findUnique({ where: { id: booking.id } });
-        assert.ok(final.status === 'CONFIRMED' || final.status === 'FAILED');
+        assert.ok(final.status === 'CONFIRMED' || final.status === 'CANCELLED');
         assert.equal(await prisma.confirmedSeat.count({ where: { showId } }), final.status === 'CONFIRMED' ? 2 : 0);
         assert.equal(await redis.exists(seatIds.map(id => key(showId, id))), 0);
       }

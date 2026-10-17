@@ -13,7 +13,7 @@ export function adminBookingStartsAt(booking: AdminBooking): string { return boo
 
 export function confirmedCancellationAllowed(createdAt: string, startsAt: string, now = Date.now()): boolean {
   const bookedAt = Date.parse(createdAt), starts = Date.parse(startsAt), age = now - bookedAt;
-  if (!Number.isFinite(bookedAt) || !Number.isFinite(starts) || age < 0 || age >= 24 * 60 * 60 * 1000 || starts - now < 24 * 60 * 60 * 1000) return false;
+  if (!Number.isFinite(bookedAt) || !Number.isFinite(starts) || !Number.isFinite(now) || age < 0 || age >= 24 * 60 * 60 * 1000 || starts <= now) return false;
   const date = (value: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(value);
-  return date(bookedAt) !== date(starts);
+  return date(now) !== date(starts);
 }

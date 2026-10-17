@@ -1,6 +1,9 @@
 import { useId, useState, type CSSProperties } from 'react'
 import type { EventAvailabilitySeat, EventSection, EventSessionDetail } from '../api/event-types'
 import { money } from '../domain/time'
+import './venue-polish.css'
+
+const tierLabel = (tier: string) => tier === 'STANDARD' ? 'Regular' : tier === 'PREMIUM' ? 'Premium' : tier
 
 interface Props { session: EventSessionDetail; seats: EventAvailabilitySeat[]; selected: string[]; disabled: boolean; onToggle: (id: string) => void }
 export function EventVenueMap({ session, seats, selected, disabled, onToggle }: Props) {
@@ -33,10 +36,10 @@ function Floodlights() {
 function VenueSection({ section, seats, selected, disabled, onToggle }: Omit<Props, 'session'> & { section: EventSection }) {
   const rows = [...new Set(section.seats.map(seat => seat.rowName))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
   const tiers = [...new Set(section.seats.map(seat => seat.ticketTier))]
-  return <section className={`venue-section venue-section-${section.position.toLowerCase()}`} aria-label={`${section.name} seats`}><div className="venue-section-heading"><h3>{section.name}</h3><p>{section.code} · {tiers.join(' / ')}</p></div><div className="venue-section-rows">{rows.map(row => <div className="venue-seat-row" key={row}><span className="venue-row-label">{row}</span><div>{section.seats.filter(seat => seat.rowName === row).sort((a, b) => a.seatNumber - b.seatNumber).map(physical => {
+  return <section className={`venue-section venue-section-${section.position.toLowerCase()}`} data-ticket-tiers={tiers.join(' ')} aria-label={`${section.name} seats`}><div className="venue-section-heading"><h3>{section.name}</h3><p>{section.code} · {tiers.map(tierLabel).join(' / ')}</p></div><div className="venue-section-rows">{rows.map(row => <div className="venue-seat-row" key={row}><span className="venue-row-label">{row}</span><div>{section.seats.filter(seat => seat.rowName === row).sort((a, b) => a.seatNumber - b.seatNumber).map(physical => {
     const seat = seats.find(item => item.id === physical.id && item.sectionId === section.id && item.rowName === physical.rowName && item.seatNumber === physical.seatNumber && item.ticketTier === physical.ticketTier)
     const state = seat?.availability.toLowerCase() ?? 'unknown', chosen = !!seat && selected.includes(seat.id)
-    return <button key={physical.id} type="button" className={`event-seat event-seat-${state}${chosen ? ' event-seat-selected' : ''}`} disabled={disabled || !seat || seat.availability !== 'AVAILABLE'} aria-pressed={chosen}
+    return <button key={physical.id} type="button" data-ticket-tier={physical.ticketTier} className={`event-seat event-seat-${state}${chosen ? ' event-seat-selected' : ''}`} disabled={disabled || !seat || seat.availability !== 'AVAILABLE'} aria-pressed={chosen}
       aria-label={`${section.name} (${section.code}) ${physical.rowName}${physical.seatNumber} ${seat ? state === 'locked' ? 'unavailable' : state : 'unavailable'} ${physical.ticketTier} ${seat ? money(seat.pricePaise) : 'price unavailable'}`}
       onClick={() => onToggle(physical.id)}><span>{physical.rowName}{physical.seatNumber}</span>{chosen && <b aria-hidden="true">✓</b>}</button>
   })}</div></div>)}</div></section>
@@ -47,8 +50,20 @@ function Stage({ workshop }: { workshop: boolean }) {
   </svg>
 }
 function PlayingArea({ sport }: { sport: string | null }) {
+  const id = useId()
   const value = sport?.toLowerCase()
-  if (value === 'cricket') return <svg viewBox="0 0 500 350" role="img" aria-label="Cricket field with central pitch"><ellipse cx="250" cy="175" rx="232" ry="155" fill="#235849" stroke="#aac8a0" strokeWidth="4" /><ellipse cx="250" cy="175" rx="165" ry="105" fill="none" stroke="#dae3b6" strokeWidth="2" strokeDasharray="9 9" /><rect x="226" y="110" width="48" height="130" rx="5" fill="#c9b185" /><path d="M230 123h40m-40 104h40" stroke="#fff5d6" strokeWidth="3" /><path d="M246 111v13m4-13v13m4-13v13m-8 102v13m4-13v13m4-13v13" stroke="#423b26" strokeWidth="2" /><text x="250" y="290" textAnchor="middle" fill="#d6e7d3">CRICKET · PLAYING AREA</text></svg>
+  if (value === 'cricket') return <svg className="cricket-oval" viewBox="0 0 500 350" role="img" aria-label="Cricket field with central pitch">
+    <defs><clipPath id={`${id}-oval`}><ellipse cx="250" cy="175" rx="226" ry="149" /></clipPath><radialGradient id={`${id}-grass`}><stop stopColor="#438b62" /><stop offset="1" stopColor="#1a4b3b" /></radialGradient></defs>
+    <ellipse cx="250" cy="175" rx="242" ry="166" fill="#102c2c" stroke="#6f9d8d" strokeWidth="2" />
+    <ellipse cx="250" cy="175" rx="232" ry="155" fill={`url(#${id}-grass)`} stroke="#dae9c6" strokeWidth="3" />
+    <g clipPath={`url(#${id}-oval)`}>{[0, 1, 2, 3, 4, 5].map(stripe => <rect key={stripe} x={25 + stripe * 80} y="20" width="40" height="310" fill="#a4d58e" opacity=".1" />)}</g>
+    <ellipse cx="250" cy="175" rx="165" ry="105" fill="none" stroke="#dae3b6" strokeWidth="1.5" strokeDasharray="4 6" opacity=".8" />
+    <rect x="218" y="103" width="64" height="144" rx="8" fill="#255d42" />
+    <rect x="230" y="110" width="40" height="130" rx="3" fill="#c9b185" stroke="#e4d0a5" />
+    <path d="M225 123h50m-50 104h50m-43-115v21m36-21v21m-36 84v21m36-21v21" stroke="#fff5d6" strokeWidth="2" fill="none" />
+    <path d="M246 111v13m4-13v13m4-13v13m-8 102v13m4-13v13m4-13v13" stroke="#423b26" strokeWidth="2" />
+    <text className="cricket-boundary-label" x="250" y="54" textAnchor="middle" fill="#e2efda">BOUNDARY</text><text x="250" y="290" textAnchor="middle" fill="#d6e7d3">CRICKET · PLAYING AREA</text>
+  </svg>
   if (value === 'football') return <svg viewBox="0 0 500 350" role="img" aria-label="Football field with goals and halfway line"><rect x="20" y="25" width="460" height="300" rx="12" fill="#235849" />{[0, 2, 4, 6].map(index => <rect key={index} x={30 + index * 55} y="35" width="55" height="280" fill="#2e6450" />)}<g fill="none" stroke="#d7e5d1" strokeWidth="3"><path d="M35 40h430v270H35zM250 40v270M35 100h65v150H35m430-150h-65v150h65M35 140h25v70H35m430-70h-25v70h25" /><circle cx="250" cy="175" r="43" /><path d="M100 144q32 31 0 62m300-62q-32 31 0 62M20 152h15v46H20zm445 0h15v46h-15z" /></g><circle cx="250" cy="175" r="4" fill="#d7e5d1" /><text x="250" y="295" textAnchor="middle" fill="#e1ecda">FOOTBALL · PLAYING AREA</text></svg>
   if (value === 'basketball') return <svg viewBox="0 0 500 350" role="img" aria-label="Basketball court with hoops and key markings"><rect x="20" y="25" width="460" height="300" rx="14" fill="#966a48" /><g fill="none" stroke="#f6e3c5" strokeWidth="3"><path d="M35 40h430v270H35zM250 40v270M35 125h100v100H35m430-100H365v100h100" /><circle cx="250" cy="175" r="40" /><path d="M135 125a50 50 0 0 1 0 100m230-100a50 50 0 0 0 0 100M35 65q195 110 0 220m430-220q-195 110 0 220M57 160v30m386-30v30" /><circle cx="67" cy="175" r="8" /><circle cx="433" cy="175" r="8" /></g><text x="250" y="292" textAnchor="middle" fill="#ffeed5">BASKETBALL · COURT</text></svg>
   return <svg viewBox="0 0 500 350" role="img" aria-label="Court"><rect x="20" y="25" width="460" height="300" rx="14" fill="#29655c" /><g fill="none" stroke="#deefe6" strokeWidth="3"><path d="M40 45h420v260H40zM250 45v260" /><rect x="95" y="85" width="310" height="180" /><path d="M95 175h310" strokeDasharray="5 5" /></g><text x="250" y="290" textAnchor="middle" fill="#deefe6">COURT</text></svg>

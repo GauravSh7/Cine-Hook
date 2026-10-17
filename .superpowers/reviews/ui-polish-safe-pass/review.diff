@@ -1,0 +1,928 @@
+# UI polish scoped working-file review package
+
+Base/head remain 54ac39c18037c0ffb851c3644e267f0fc658c556: commits forbidden. Full current scoped files below include unchanged context; no historical before-images exist for untracked baseline. Requirements/report docs/ui-polish.md. Backend event financial module is concurrent and OUTSIDE this review.
+
+## backend/src/modules/demo-catalog/demo-catalog.types.ts
+warning: in the working copy of 'backend/src/modules/demo-catalog/demo-catalog.types.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/src/modules/demo-catalog/demo-catalog.types.ts b/backend/src/modules/demo-catalog/demo-catalog.types.ts
+new file mode 100644
+index 0000000..71d4b1f
+--- /dev/null
++++ b/backend/src/modules/demo-catalog/demo-catalog.types.ts
+@@ -0,0 +1,13 @@
++import type { DemoListing, DemoListingKind } from '../../generated/prisma/client.js';
++export type DemoQuery = { kind: DemoListingKind; cityId?: string; category?: string; search?: string; page: number; limit: number };
++export type DemoStoreQuery = Omit<DemoQuery, 'cityId'> & { cityName?: string };
++export type PublicDemoListing = Omit<DemoListing, 'isActive' | 'createdAt' | 'updatedAt'> & { isDemo: true; bookingAvailable: false };
++export interface DemoStore {
++  list(query: DemoStoreQuery): Promise<DemoListing[]>;
++  findActive(kind: DemoListingKind, id: string): Promise<DemoListing | null>;
++  findCityName(id: string): Promise<string | null>;
++}
++export interface DemoCatalog {
++  list(query: DemoQuery): Promise<{ items: PublicDemoListing[]; page: number; limit: number }>;
++  get(kind: DemoListingKind, id: string): Promise<{ listing: PublicDemoListing }>;
++}
+
+## backend/src/modules/demo-catalog/demo-catalog.validation.ts
+warning: in the working copy of 'backend/src/modules/demo-catalog/demo-catalog.validation.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/src/modules/demo-catalog/demo-catalog.validation.ts b/backend/src/modules/demo-catalog/demo-catalog.validation.ts
+new file mode 100644
+index 0000000..005bbca
+--- /dev/null
++++ b/backend/src/modules/demo-catalog/demo-catalog.validation.ts
+@@ -0,0 +1,6 @@
++import { z } from 'zod';
++const filter = z.string().trim().max(100).transform(value => value || undefined).optional();
++const number = (max: number, fallback: number) => z.string().regex(/^[1-9]\d*$/).transform(Number).pipe(z.number().int().max(max)).default(fallback);
++export const demoKindSchema = z.object({ kind: z.enum(['stream', 'events', 'sports', 'activities']).transform(kind => kind.toUpperCase() as 'STREAM' | 'EVENTS' | 'SPORTS' | 'ACTIVITIES') }).strict();
++export const demoDetailSchema = demoKindSchema.extend({ id: z.uuid() }).strict();
++export const demoQuerySchema = z.object({ cityId: z.uuid().optional(), category: filter, search: filter, page: number(100000, 1), limit: number(100, 20) }).strict();
+
+## backend/src/modules/demo-catalog/demo-catalog.repository.ts
+warning: in the working copy of 'backend/src/modules/demo-catalog/demo-catalog.repository.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/src/modules/demo-catalog/demo-catalog.repository.ts b/backend/src/modules/demo-catalog/demo-catalog.repository.ts
+new file mode 100644
+index 0000000..a8a4a23
+--- /dev/null
++++ b/backend/src/modules/demo-catalog/demo-catalog.repository.ts
+@@ -0,0 +1,19 @@
++import type { PrismaClient, Prisma } from '../../generated/prisma/client.js';
++import type { DemoListingKind } from '../../generated/prisma/client.js';
++import type { DemoStoreQuery, DemoStore } from './demo-catalog.types.js';
++export class DemoCatalogRepository implements DemoStore {
++  constructor(private readonly prisma: PrismaClient) {}
++  list(query: DemoStoreQuery) {
++    const where: Prisma.DemoListingWhereInput = { kind: query.kind, isActive: true };
++    if (query.category) where.category = query.category;
++    if (query.cityName) where.cityName = { equals: query.cityName, mode: 'insensitive' };
++    if (query.search) where.title = { contains: query.search.replace(/[\\%_]/g, '\\$&'), mode: 'insensitive' };
++    return this.prisma.demoListing.findMany({ where, orderBy: [{ title: 'asc' }, { id: 'asc' }], skip: (query.page - 1) * query.limit, take: query.limit });
++  }
++  findActive(kind: DemoListingKind, id: string) {
++    return this.prisma.demoListing.findFirst({ where: { id, kind, isActive: true } });
++  }
++  async findCityName(id: string) {
++    return (await this.prisma.city.findUnique({ where: { id }, select: { name: true } }))?.name ?? null;
++  }
++}
+
+## backend/src/modules/demo-catalog/demo-catalog.service.ts
+warning: in the working copy of 'backend/src/modules/demo-catalog/demo-catalog.service.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/src/modules/demo-catalog/demo-catalog.service.ts b/backend/src/modules/demo-catalog/demo-catalog.service.ts
+new file mode 100644
+index 0000000..d3b6819
+--- /dev/null
++++ b/backend/src/modules/demo-catalog/demo-catalog.service.ts
+@@ -0,0 +1,21 @@
++import type { DemoListingKind, DemoListing } from '../../generated/prisma/client.js';
++import { AppError } from '../../errors/app-error.js';
++import type { DemoQuery, DemoStore, PublicDemoListing } from './demo-catalog.types.js';
++function publicListing({ isActive: _active, createdAt: _created, updatedAt: _updated, ...listing }: DemoListing): PublicDemoListing {
++  return { ...listing, isDemo: true, bookingAvailable: false };
++}
++export class DemoCatalogService {
++  constructor(private readonly store: DemoStore) {}
++  async list(query: DemoQuery) {
++    const { cityId, ...filters } = query;
++    const cityName = cityId ? await this.store.findCityName(cityId) : null;
++    if (cityId && !cityName) throw new AppError(404, 'CITY_NOT_FOUND', 'City could not be found.');
++    const items = (await this.store.list({ ...filters, ...(cityName && query.kind !== 'STREAM' ? { cityName } : {}) })).map(publicListing);
++    return { items, page: query.page, limit: query.limit };
++  }
++  async get(kind: DemoListingKind, id: string) {
++    const listing = await this.store.findActive(kind, id);
++    if (!listing) throw new AppError(404, 'LISTING_NOT_FOUND', 'This experience could not be found.');
++    return { listing: publicListing(listing) };
++  }
++}
+
+## backend/src/modules/demo-catalog/demo-catalog.controller.ts
+warning: in the working copy of 'backend/src/modules/demo-catalog/demo-catalog.controller.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/src/modules/demo-catalog/demo-catalog.controller.ts b/backend/src/modules/demo-catalog/demo-catalog.controller.ts
+new file mode 100644
+index 0000000..aa4c033
+--- /dev/null
++++ b/backend/src/modules/demo-catalog/demo-catalog.controller.ts
+@@ -0,0 +1,10 @@
++import type { RequestHandler } from 'express';
++import type { DemoCatalog } from './demo-catalog.types.js';
++export class DemoCatalogController {
++  constructor(private readonly service: DemoCatalog) {}
++  list: RequestHandler = async (_req, res) => { res.json({ success: true, data: await this.service.list({ ...res.locals.validatedQuery, ...res.locals.validatedParams }) }); };
++  get: RequestHandler = async (_req, res) => {
++    const { kind, id } = res.locals.validatedParams;
++    res.json({ success: true, data: await this.service.get(kind, id) });
++  };
++}
+
+## backend/src/modules/demo-catalog/demo-catalog.routes.ts
+warning: in the working copy of 'backend/src/modules/demo-catalog/demo-catalog.routes.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/src/modules/demo-catalog/demo-catalog.routes.ts b/backend/src/modules/demo-catalog/demo-catalog.routes.ts
+new file mode 100644
+index 0000000..620f911
+--- /dev/null
++++ b/backend/src/modules/demo-catalog/demo-catalog.routes.ts
+@@ -0,0 +1,12 @@
++import { Router } from 'express';
++import { validateRequest } from '../../middleware/validate-request.js';
++import { DemoCatalogController } from './demo-catalog.controller.js';
++import { demoKindSchema, demoDetailSchema, demoQuerySchema } from './demo-catalog.validation.js';
++import type { DemoCatalog } from './demo-catalog.types.js';
++export function demoCatalogRoutes(service: DemoCatalog) {
++  const router = Router({ caseSensitive: true });
++  const controller = new DemoCatalogController(service);
++  router.get('/:kind', validateRequest(demoKindSchema, 'params'), validateRequest(demoQuerySchema, 'query'), controller.list);
++  router.get('/:kind/:id', validateRequest(demoDetailSchema, 'params'), controller.get);
++  return router;
++}
+
+## backend/tests/demo-catalog-details.test.ts
+warning: in the working copy of 'backend/tests/demo-catalog-details.test.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/tests/demo-catalog-details.test.ts b/backend/tests/demo-catalog-details.test.ts
+new file mode 100644
+index 0000000..5c3717e
+--- /dev/null
++++ b/backend/tests/demo-catalog-details.test.ts
+@@ -0,0 +1,69 @@
++import { describe, expect, it } from 'vitest';
++import request from 'supertest';
++import { createApp } from '../src/app.js';
++import { AuthService } from '../src/modules/auth/auth.service.js';
++import { TokenService } from '../src/modules/auth/token.service.js';
++import { DemoCatalogService } from '../src/modules/demo-catalog/demo-catalog.service.js';
++import { testCatalog } from './helpers/catalog.js';
++
++const id = '60000000-0000-4000-8000-000000000001';
++const cityId = '60000000-0000-4000-8000-000000000002';
++const entry = { id, slug: 'sample-comedy', kind: 'EVENTS' as const, title: 'Laugh Lines — DEMO', description: 'Fictional comedy showcase.',
++  category: 'Comedy Shows', cityName: 'New Delhi', venueName: 'Sample Studio', startsAt: new Date('2099-10-12T14:00:00Z'),
++  durationMinutes: 75, imageUrl: '/demo-category-art/events.svg', imageAttribution: 'Original CC0 illustration.',
++  isActive: true, createdAt: new Date(), updatedAt: new Date() };
++function setup(active = true) {
++  const queries: unknown[] = [];
++  const demo = new DemoCatalogService({
++    list: async query => { queries.push(query); return [entry]; },
++    findActive: async (kind, requested) => { queries.push({ kind, id: requested }); return active && kind === entry.kind && requested === id ? entry : null; },
++    findCityName: async requested => requested === cityId ? 'New Delhi' : null,
++  });
++  const tokens = new TokenService({ secret: 'catalog-details-test-only-secret-1234567890', expiresInSeconds: 3600 });
++  const auth = new AuthService({ create: async () => { throw Error('unused'); }, findByEmail: async () => null, findById: async () => null }, tokens);
++  return { app: createApp({ frontendOrigin: 'http://localhost:5173', auth: { service: auth, tokens }, catalog: testCatalog().services, demoCatalog: demo }), demo, queries };
++}
++describe('scoped public category details and city reads', () => {
++  it('opens a persisted active listing with non-bookable public data, not internal fields', async () => {
++    const response = await request(setup().app).get(`/api/demo-catalog/events/${id}`);
++    expect(response.status).toBe(200);
++    expect(response.body.data.listing).toMatchObject({ id, title: entry.title, category: 'Comedy Shows', isDemo: true, bookingAvailable: false });
++    expect(response.body.data.listing).not.toHaveProperty('isActive');
++    expect(response.body.data.listing).not.toHaveProperty('createdAt');
++  });
++  it.each(['sports', 'activities', 'stream'])('does not leak an EVENTS listing through %s', async kind => {
++    const response = await request(setup().app).get(`/api/demo-catalog/${kind}/${id}`);
++    expect(response.status).toBe(404); expect(response.body.error.code).toBe('LISTING_NOT_FOUND');
++  });
++  it('does not return inactive or unknown listing records', async () => {
++    expect((await request(setup(false).app).get(`/api/demo-catalog/events/${id}`)).status).toBe(404);
++    expect((await request(setup().app).get('/api/demo-catalog/events/60000000-0000-4000-8000-000000000099')).status).toBe(404);
++  });
++  it.each(['not-a-uuid', '..', '1'])('rejects invalid listing identity %s before reading', async invalid => {
++    const { app, queries } = setup();
++    const response = await request(app).get(`/api/demo-catalog/events/${invalid}`);
++    expect(response.status).toBe(400); expect(queries).toHaveLength(0);
++  });
++  it('uses only an existing city name resolved by the server for physical listings', async () => {
++    const { app, queries } = setup();
++    expect((await request(app).get(`/api/demo-catalog/events?cityId=${cityId}`)).status).toBe(200);
++    expect(queries).toEqual([{ kind: 'EVENTS', page: 1, limit: 20, cityName: 'New Delhi' }]);
++  });
++  it('rejects unsupported cities instead of making geographical coverage up', async () => {
++    const { app, queries } = setup();
++    const response = await request(app).get('/api/demo-catalog/sports?cityId=60000000-0000-4000-8000-000000000099');
++    expect(response.status).toBe(404); expect(response.body.error.code).toBe('CITY_NOT_FOUND'); expect(queries).toHaveLength(0);
++  });
++  it('validates but does not filter cityless streaming concepts by a physical venue', async () => {
++    const { demo, queries } = setup();
++    await demo.list({ kind: 'STREAM', cityId, page: 1, limit: 20 });
++    expect(queries).toEqual([{ kind: 'STREAM', page: 1, limit: 20 }]);
++  });
++  it.each(['cityId=invalid', `cityId=${cityId}&cityId=${cityId}`, 'cityName=Mumbai'])('rejects malformed or browser-resolved location %s', async query => {
++    const { app, queries } = setup();
++    expect((await request(app).get(`/api/demo-catalog/events?${query}`)).status).toBe(400); expect(queries).toHaveLength(0);
++  });
++  it('offers no mutation or booking action on a detail route', async () => {
++    for (const method of ['post','patch','delete'] as const) expect((await request(setup().app)[method](`/api/demo-catalog/events/${id}`).send({ paid: true, amount: 1 })).status).toBe(404);
++  });
++});
+
+## backend/tests/demo-catalog-repository.test.ts
+warning: in the working copy of 'backend/tests/demo-catalog-repository.test.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/backend/tests/demo-catalog-repository.test.ts b/backend/tests/demo-catalog-repository.test.ts
+new file mode 100644
+index 0000000..d6f3122
+--- /dev/null
++++ b/backend/tests/demo-catalog-repository.test.ts
+@@ -0,0 +1,26 @@
++import { describe, expect, it, vi } from 'vitest';
++import type { PrismaClient } from '../src/generated/prisma/client.js';
++import { DemoCatalogRepository } from '../src/modules/demo-catalog/demo-catalog.repository.js';
++
++function setup() {
++  const findMany = vi.fn().mockResolvedValue([]), findFirst = vi.fn().mockResolvedValue(null), findUnique = vi.fn().mockResolvedValue({ name: 'New Delhi' });
++  return { repository: new DemoCatalogRepository({ demoListing: { findMany, findFirst }, city: { findUnique } } as unknown as PrismaClient), findMany, findFirst, findUnique };
++}
++describe('category repository scoped predicates', () => {
++  it('restricts a detail read to its active kind and exact identity', async () => {
++    const { repository, findFirst } = setup(); await repository.findActive('SPORTS', 'test-id');
++    expect(findFirst).toHaveBeenCalledExactlyOnceWith({ where: { id: 'test-id', kind: 'SPORTS', isActive: true } });
++  });
++  it('resolves only an existing city name without reading or writing extra fields', async () => {
++    const { repository, findUnique } = setup(); expect(await repository.findCityName('city-id')).toBe('New Delhi');
++    expect(findUnique).toHaveBeenCalledExactlyOnceWith({ where: { id: 'city-id' }, select: { name: true } });
++  });
++  it('keeps city equality, activity filters and bounded stable pagination in one read', async () => {
++    const { repository, findMany } = setup(); await repository.list({ kind: 'ACTIVITIES', cityName: 'Mumbai', category: 'Workshops', page: 2, limit: 6 });
++    expect(findMany).toHaveBeenCalledExactlyOnceWith({ where: { kind: 'ACTIVITIES', isActive: true, cityName: { equals: 'Mumbai', mode: 'insensitive' }, category: 'Workshops' }, orderBy: [{ title: 'asc' }, { id: 'asc' }], skip: 6, take: 6 });
++  });
++  it('treats wildcard characters as literal search rather than unrestricted matches', async () => {
++    const { repository, findMany } = setup(); await repository.list({ kind: 'EVENTS', search: 'A%_B', page: 1, limit: 20 });
++    expect(findMany.mock.calls[0]![0].where.title).toEqual({ contains: 'A\\%\\_B', mode: 'insensitive' });
++  });
++});
+
+## frontend/src/api/demo-catalog.ts
+warning: in the working copy of 'frontend/src/api/demo-catalog.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/api/demo-catalog.ts b/frontend/src/api/demo-catalog.ts
+new file mode 100644
+index 0000000..360d790
+--- /dev/null
++++ b/frontend/src/api/demo-catalog.ts
+@@ -0,0 +1,8 @@
++import { api, queryPath } from './client'
++import type { Page } from './types'
++export type DemoKind = 'stream' | 'events' | 'sports' | 'activities'
++export interface DemoListing { id: string; slug: string; kind: 'STREAM' | 'EVENTS' | 'SPORTS' | 'ACTIVITIES'; title: string; description: string; category: string; cityName: string | null; venueName: string | null; startsAt: string | null; durationMinutes: number | null; imageUrl: string; imageAttribution: string; isDemo: true; bookingAvailable: false }
++export const demoCatalogApi = {
++  list: (kind: DemoKind, query: { cityId?: string; category?: string; search?: string; page?: number; limit?: number }, signal: AbortSignal) => api<Page<DemoListing>>(queryPath(`/demo-catalog/${kind}`, query, ['cityId','category','search','page','limit']), { signal }),
++  get: (kind: DemoKind, id: string, signal: AbortSignal) => api<{ listing: DemoListing }>(`/demo-catalog/${kind}/${encodeURIComponent(id)}`, { signal }),
++}
+
+## frontend/src/api/client.ts
+warning: in the working copy of 'frontend/src/api/client.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/api/client.ts b/frontend/src/api/client.ts
+new file mode 100644
+index 0000000..4fea2e5
+--- /dev/null
++++ b/frontend/src/api/client.ts
+@@ -0,0 +1,89 @@
++export class ApiError extends Error {
++  readonly status: number
++  readonly code: string
++  readonly requestId: string | null
++  constructor(status: number, code: string, message: string, requestId: string | null = null) {
++    super(message); this.name = 'ApiError'; this.status = status; this.code = code; this.requestId = requestId
++  }
++}
++
++export interface ApiOptions { method?: string; body?: unknown; signal?: AbortSignal; token?: string | null }
++let accessToken: string | null = null
++let serverOffsetMs = 0
++export function setAccessToken(token: string | null): void { accessToken = token }
++export function getServerNow(): number { return Date.now() + serverOffsetMs }
++
++const safeMessages: Record<string, string> = {
++  INVALID_CREDENTIALS: 'Email or password is incorrect.', UNAUTHORIZED: 'Please sign in to continue.',
++  EMAIL_EXISTS: 'Email is already registered.', HOLD_EXPIRED: 'Your seat hold has expired.', HOLD_LOST: 'Your seat hold is no longer available.',
++  SEAT_BOOKED: 'One or more selected seats are already booked.', SEAT_LOCKED: 'One or more selected seats are held by another customer.',
++  SHOW_CLOSED: 'Booking is closed for this show.', BOOKING_STATE: 'This action is unavailable for the current booking state.',
++  CANCELLATION_CLOSED: 'Cancellation is closed for this show.', PAYMENTS_UNAVAILABLE: 'Payments are currently unavailable.',
++  INVALID_PAYMENT_SIGNATURE: 'Payment verification was unsuccessful. Check your booking status.',
++  GOOGLE_EMAIL_CONFLICT: 'An account already uses this email. Please sign in with email and password; accounts are not automatically linked.',
++}
++function messageFor(status: number, code: string): string {
++  return safeMessages[code] ?? (status === 403 ? 'You do not have permission to perform this action.' : status === 404 ? 'This item could not be found.' : status >= 500 ? 'The service is temporarily unavailable. Please try again.' : 'The request could not be completed. Please refresh and try again.')
++}
++function apiPath(path: string): string {
++  if (!path.startsWith('/') || path.startsWith('//') || /[\\#]/.test(path)) throw new ApiError(0, 'INVALID_API_PATH', 'Invalid API request.')
++  const destination = path.startsWith('/api/') ? path : `/api${path}`
++  const parsed = new URL(destination, 'https://cinehook.invalid')
++  if (!parsed.pathname.startsWith('/api/')) throw new ApiError(0, 'INVALID_API_PATH', 'Invalid API request.')
++  return destination
++}
++const aborted = () => new DOMException('The request was cancelled.', 'AbortError')
++
++export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
++  const destination = apiPath(path)
++  if (options.signal?.aborted) throw aborted()
++  const snapshotToken = options.token === undefined ? accessToken : options.token
++  const controller = new AbortController()
++  let timedOut = false
++  let rejectInterrupted: (reason: unknown) => void = () => undefined
++  const interrupted = new Promise<never>((_resolve, reject) => { rejectInterrupted = reject })
++  const cancel = () => { controller.abort(); rejectInterrupted(aborted()) }
++  options.signal?.addEventListener('abort', cancel, { once: true })
++  const timeout = setTimeout(() => { timedOut = true; controller.abort(); rejectInterrupted(new ApiError(0, 'REQUEST_TIMEOUT', 'The request took too long. Please check your booking before trying again.')) }, 10000)
++  const headers = new Headers({ Accept: 'application/json' })
++  if (snapshotToken) headers.set('Authorization', `Bearer ${snapshotToken}`)
++  const multipart = options.body instanceof FormData
++  if (options.body !== undefined && !multipart) headers.set('Content-Type', 'application/json')
++  try {
++    const operation = async (): Promise<T> => {
++      const response = await fetch(destination, { method: options.method ?? 'GET', headers, body: options.body === undefined ? undefined : multipart ? options.body as FormData : JSON.stringify(options.body), signal: controller.signal, credentials: 'same-origin', cache: 'no-store' })
++      if (controller.signal.aborted) throw aborted()
++      const serverDate = Date.parse(response.headers.get('Date') ?? '')
++      if (Number.isFinite(serverDate)) serverOffsetMs = serverDate - Date.now()
++      if (response.status === 401 && snapshotToken && snapshotToken === accessToken) {
++        accessToken = null
++        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cinehook:unauthorized', { detail: { token: snapshotToken } }))
++      }
++      let envelope: unknown
++      try { envelope = await response.json() } catch { throw new ApiError(response.status, 'INVALID_RESPONSE', 'We couldn’t load this information. Please try again.') }
++      if (controller.signal.aborted) throw aborted()
++      if (!envelope || typeof envelope !== 'object') throw new ApiError(response.status, 'INVALID_RESPONSE', 'We couldn’t load this information. Please try again.')
++      const body = envelope as { success?: unknown; data?: T; error?: { code?: unknown; requestId?: unknown } }
++      if (!response.ok || body.success !== true) {
++        const code = typeof body.error?.code === 'string' && /^[A-Z0-9_]{1,100}$/.test(body.error.code) ? body.error.code : 'REQUEST_FAILED'
++        const requestId = typeof body.error?.requestId === 'string' && /^[A-Za-z0-9_.:-]{1,100}$/.test(body.error.requestId) ? body.error.requestId : null
++        throw new ApiError(response.status, code, messageFor(response.status, code), requestId)
++      }
++      if (!('data' in body)) throw new ApiError(response.status, 'INVALID_RESPONSE', 'We couldn’t load this information. Please try again.')
++      return body.data as T
++    }
++    return await Promise.race([operation(), interrupted])
++  } catch (error) {
++    if (options.signal?.aborted) throw aborted()
++    if (error instanceof ApiError) throw error
++    if (timedOut) throw new ApiError(0, 'REQUEST_TIMEOUT', 'The request took too long. Please check your booking before trying again.')
++    throw new ApiError(0, 'NETWORK_ERROR', 'Unable to connect. Please try again.')
++  } finally { clearTimeout(timeout); options.signal?.removeEventListener('abort', cancel) }
++}
++
++export function queryPath(path: string, query: object | undefined, fields: readonly string[]): string {
++  const values = query as Record<string, unknown> | undefined
++  const params = new URLSearchParams()
++  for (const field of fields) if (values?.[field] !== undefined && values[field] !== '') params.set(field, String(values[field]))
++  return `${path}${params.size ? `?${params}` : ''}`
++}
+
+## frontend/src/pages/CategoryPage.tsx
+warning: in the working copy of 'frontend/src/pages/CategoryPage.tsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/pages/CategoryPage.tsx b/frontend/src/pages/CategoryPage.tsx
+new file mode 100644
+index 0000000..a9d3769
+--- /dev/null
++++ b/frontend/src/pages/CategoryPage.tsx
+@@ -0,0 +1,35 @@
++import { useCallback, useState, type FormEvent } from 'react'
++import { Link } from 'react-router'
++import { ThematicArt } from '../components/ThematicArt'
++import { demoCatalogApi, type DemoKind, type DemoListing } from '../api/demo-catalog'
++import { useAsync } from '../app/use-async'
++import { EmptyState, ErrorState, Loading } from '../components/feedback'
++import { formatDateTime } from '../domain/time'
++import { useCity } from '../app/city-context'
++
++const data = {
++  stream: { title: 'Stories beyond the big screen', subtitle: 'An original collection of story concepts, curated for the curious.', groups: ['Drama', 'Romance', 'Thriller', 'Comedy', 'Sci-Fi', 'Adventure'] },
++  events: { title: 'Music. Moments. Memories.', subtitle: 'Discover a world of live experiences', groups: ['Concerts', 'Comedy Shows', 'Theatre & Performing Arts', 'Exhibitions', 'Festivals'] },
++  sports: { title: 'Live sports. Feel the action.', subtitle: 'The thrill of the game, all in one place', groups: ['Cricket', 'Football', 'Badminton & Indoor', 'Other Sports'] },
++  activities: { title: 'Unlock new experiences', subtitle: 'Learn. Play. Explore. Together.', groups: ['Workshops', 'Gaming & VR', 'Adventure & Fun', 'Kids Activities', 'Weekend Experiences'] },
++}
++export function CategoryPage({ category }: { category: keyof typeof data }) {
++  const city = useCity()
++  if (city.loading) return <main className="page-shell"><Loading label="Loading your location…"/></main>
++  if (city.error) return <main className="page-shell"><ErrorState error={city.error} retry={city.retry}/></main>
++  return <DemoCatalogue key={`${category}:${city.cityId}`} category={category} cityId={city.cityId} />
++}
++function DemoCatalogue({ category, cityId }: { category: DemoKind; cityId: string }) {
++  const content = data[category], [selected, setSelected] = useState(''), [search, setSearch] = useState(''), [draft, setDraft] = useState(''), [page, setPage] = useState(1)
++  const load = useCallback((signal: AbortSignal) => demoCatalogApi.list(category, { cityId: cityId || undefined, category: selected || undefined, search: search || undefined, page, limit: 12 }, signal), [category, cityId, selected, search, page])
++  const listings = useAsync(`demo:${category}:${cityId}:${selected}:${search}:${page}`, load)
++  const submit = (event: FormEvent) => { event.preventDefault(); setSearch(draft.trim()); setPage(1) }
++  return <main className={`page-shell category-page category-${category} demo-catalogue`}><section className="category-hero"><ThematicArt theme={category}/><div className="hero-copy"><p className="eyebrow">CINEHOOK · {category}</p><h1>{content.title}</h1><p>{content.subtitle}</p></div></section><p className="demo-notice">Fictional sample experiences, not announced public events. {category === 'stream' ? 'Playback and subscriptions are not available.' : 'Tickets are not available.'}</p><section className="demo-discovery"><div className="section-heading"><div><h2>Explore {category}</h2><p className="muted">Original concepts. A little inspiration.</p></div></div><div className="filter-tabs" role="group" aria-label="Experience categories">{['All', ...content.groups].map(group => <button key={group} className={selected === (group === 'All' ? '' : group) ? 'btn' : 'secondary'} aria-pressed={selected === (group === 'All' ? '' : group)} onClick={() => { setSelected(group === 'All' ? '' : group); setPage(1) }}>{group}</button>)}</div><form className="demo-search" onSubmit={submit}><label>Search experiences<input className="input" type="search" value={draft} onChange={event => setDraft(event.target.value)} maxLength={100} placeholder="Find a story, sport or experience" /></label><button className="btn" type="submit">Find listings</button><button className="secondary" type="button" onClick={() => { setSelected(''); setSearch(''); setDraft(''); setPage(1) }}>Clear filters</button></form></section>
++    {listings.loading ? <Loading label="Loading experiences…" /> : listings.error ? <ErrorState error={listings.error} retry={listings.reload} /> : listings.data!.items.length === 0 ? <EmptyState title="No experiences found" detail="Try another city or category, or clear your filters." /> : <div className="demo-listing-grid">{listings.data!.items.map((listing, index) => <DemoCard key={listing.id} listing={listing} variation={index % 3} />)}</div>}
++    <div className="pagination"><button className="secondary" disabled={page === 1 || listings.loading} onClick={() => setPage(page - 1)}>Previous listings</button><span className="muted">Page {page}</span><button className="secondary" disabled={listings.loading || !listings.data || listings.data.items.length < listings.data.limit} onClick={() => setPage(page + 1)}>More listings</button></div>
++  </main>
++}
++function DemoCard({ listing, variation }: { listing: DemoListing; variation: number }) {
++  const [failed, setFailed] = useState(false)
++  return <article className={`demo-listing panel demo-variation-${variation}`}><Link className="listing-card-link" to={`/${listing.kind.toLowerCase()}/${listing.id}`} aria-label={`View ${listing.title}`}><div className="demo-listing-art">{!failed ? <img src={listing.imageUrl} alt={`${listing.title} illustrative artwork`} loading="lazy" onError={() => setFailed(true)} /> : <ThematicArt theme="cinema" />}<span className="demo-badge">SAMPLE EXPERIENCE</span></div><div className="demo-listing-copy"><p className="eyebrow">{listing.category}</p><h2>{listing.title}</h2><p className="muted">{listing.description}</p><dl>{listing.cityName && <><dt>City</dt><dd>{listing.cityName}</dd></>}{listing.venueName && <><dt>Venue</dt><dd>{listing.venueName}</dd></>}{listing.startsAt && <><dt>Sample date · IST</dt><dd>{formatDateTime(listing.startsAt)}</dd></>}{listing.durationMinutes && <><dt>Duration</dt><dd>{listing.durationMinutes} min</dd></>}</dl><p className="demo-disabled">{listing.kind === 'STREAM' ? 'Playback unavailable' : 'Tickets unavailable'}</p><span className="listing-card-action">View details <span aria-hidden="true">→</span></span><small className="muted">{listing.imageAttribution}</small></div></Link></article>
++}
+
+## frontend/src/pages/ListingPage.tsx
+warning: in the working copy of 'frontend/src/pages/ListingPage.tsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/pages/ListingPage.tsx b/frontend/src/pages/ListingPage.tsx
+new file mode 100644
+index 0000000..9dbef6a
+--- /dev/null
++++ b/frontend/src/pages/ListingPage.tsx
+@@ -0,0 +1,37 @@
++import { useCallback, useState } from 'react'
++import { Link, useParams } from 'react-router'
++import { demoCatalogApi, type DemoKind, type DemoListing } from '../api/demo-catalog'
++import { useAsync } from '../app/use-async'
++import { useCity } from '../app/city-context'
++import { ErrorState, Loading } from '../components/feedback'
++import { ThematicArt } from '../components/ThematicArt'
++import { LocationPin } from '../components/LocationPin'
++import { LocationDialog } from '../components/LocationDialog'
++import { formatDateTime } from '../domain/time'
++
++const names = { stream: 'Stream', events: 'Events', sports: 'Sports', activities: 'Activities' }
++export function ListingPage({ category }: { category: DemoKind }) {
++  const { id = '' } = useParams()
++  const load = useCallback((signal: AbortSignal) => demoCatalogApi.get(category, id, signal), [category, id])
++  const resource = useAsync(`listing:${category}:${id}`, load)
++  return <main className="page-shell listing-detail"><Link className="listing-back" to={`/${category}`}><span aria-hidden="true">←&nbsp;</span>Back to {names[category]}</Link>
++    {resource.loading ? <Loading label="Loading experience…"/> : resource.error ? <ErrorState error={resource.error} retry={resource.reload}/> : <ListingContent key={resource.data!.listing.id} listing={resource.data!.listing}/>}
++  </main>
++}
++function ListingContent({ listing }: { listing: DemoListing }) {
++  const city = useCity(), [failed, setFailed] = useState(false), [picker, setPicker] = useState(false)
++  const selectedCity = city.cities.find(item => item.id === city.cityId)?.name
++  const differentCity = selectedCity && listing.cityName && selectedCity.toLowerCase() !== listing.cityName.toLowerCase()
++  const stream = listing.kind === 'STREAM'
++  return <>
++    <section className="panel listing-feature"><div className="listing-detail-art">{failed ? <ThematicArt theme="cinema"/> : <img src={listing.imageUrl} alt={`${listing.title} illustrative artwork`} fetchPriority="high" onError={() => setFailed(true)}/>}</div>
++      <div className="listing-feature-copy"><p className="eyebrow">{listing.category}</p><h1>{listing.title}</h1><p className="listing-description">{listing.description}</p>
++        <div className="listing-facts"><dl>{listing.cityName && <div><dt>City</dt><dd>{listing.cityName}</dd></div>}{listing.venueName && <div><dt>Venue</dt><dd>{listing.venueName}</dd></div>}{listing.startsAt && <div><dt>Sample date · IST</dt><dd>{formatDateTime(listing.startsAt)}</dd></div>}{listing.durationMinutes && <div><dt>Duration</dt><dd>{listing.durationMinutes} min</dd></div>}</dl></div>
++        <button className="secondary listing-city" onClick={() => setPicker(true)}><LocationPin/><span>Selected city: {city.loading ? 'Loading cities…' : city.error ? 'Location unavailable' : selectedCity ?? 'All cities'}</span></button>
++        {differentCity && <p className="muted listing-city-note">This experience is listed in {listing.cityName}, outside your selected city. Change location to browse that city.</p>}
++      </div></section>
++    <section className="panel listing-availability" aria-labelledby="listing-availability-title"><div><h2 id="listing-availability-title">{stream ? 'Streaming unavailable' : 'Tickets unavailable'}</h2><p className="muted">{stream ? 'This is a fictional story concept. Playback and subscriptions are not available.' : 'This is a fictional sample experience, not an announced public event. Sessions, ticket prices and bookings are not available.'}</p></div><button className="btn" disabled>{stream ? 'Playback unavailable' : 'Tickets unavailable'}</button></section>
++    <details className="panel media-credits"><summary>Artwork credits</summary><p>{listing.imageAttribution}</p></details>
++    {picker && <LocationDialog onClose={() => setPicker(false)}/>}
++  </>
++}
+
+## frontend/src/components/PublicLayout.tsx
+warning: in the working copy of 'frontend/src/components/PublicLayout.tsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/components/PublicLayout.tsx b/frontend/src/components/PublicLayout.tsx
+new file mode 100644
+index 0000000..c2eb8b1
+--- /dev/null
++++ b/frontend/src/components/PublicLayout.tsx
+@@ -0,0 +1,44 @@
++import { useEffect, useRef, useState, type ReactNode } from 'react'
++import { Link, useLocation } from 'react-router'
++import { useSession } from '../app/session-context'
++import { useCity } from '../app/city-context'
++import { Brand } from './Brand'
++import { LocationDialog } from './LocationDialog'
++import { LocationPin } from './LocationPin'
++
++const categories = ['Movies', 'Stream', 'Events', 'Sports', 'Activities', 'Offers']
++export function PublicLayout({ children }: { children: ReactNode }) {
++  const session = useSession(), city = useCity(), location = useLocation()
++  const [menu, setMenu] = useState(false), [picker, setPicker] = useState(false)
++  const menuButton = useRef<HTMLButtonElement>(null), menuWrap = useRef<HTMLDivElement>(null)
++  useEffect(() => {
++    if (!menu) return
++    const dismiss = (event: PointerEvent) => { if (!menuWrap.current?.contains(event.target as Node)) setMenu(false) }
++    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenu(false); menuButton.current?.focus() } }
++    document.addEventListener('pointerdown', dismiss)
++    document.addEventListener('keydown', escape)
++    return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', escape) }
++  }, [menu])
++  const authRoute = location.pathname === '/login' || location.pathname === '/register'
++  const requested = authRoute ? new URLSearchParams(location.search).get('returnTo') ?? '/' : location.pathname + location.search
++  const destination = requested.startsWith('/') && !requested.startsWith('//') && !requested.includes('\\') && !requested.startsWith('/login') && !requested.startsWith('/register') ? requested : '/'
++  const login = `/login?returnTo=${encodeURIComponent(destination)}`
++  const cityName = city.loading ? 'Loading cities…' : city.error ? 'Location unavailable' : city.cities.find(item => item.id === city.cityId)?.name ?? 'All cities'
++  const home = location.pathname === '/' || location.pathname === '/movies'
++  const scrollHome = () => window.scrollTo({ top: 0, left: 0, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
++  return <><a className="skip-link" href="#main-content">Skip to content</a>
++    <header className="site-header print:hidden"><div className="header-main"><Link className="brand" aria-label="CineHook" to="/" onClick={scrollHome}><Brand /></Link>
++      <button className="secondary location-button" onClick={() => setPicker(true)}><LocationPin/><span>{cityName}</span><span aria-hidden="true">⌄</span></button>
++      {session.user ? <Link className="account-header-link" to="/account" title={session.user.name}>♙ <span>{session.user.name}</span></Link> : <Link className="btn signin-link" aria-label="Login" to={login}>♙ <span>Sign in</span></Link>}
++      <div className="menu-wrap" ref={menuWrap}><button className="icon-button" ref={menuButton} aria-label="Menu" aria-expanded={menu} aria-controls="account-menu" onClick={() => setMenu(value => !value)}>☰</button><nav id="account-menu" className={`account-menu panel ${menu ? 'account-menu-open' : ''}`} aria-label="Account menu" aria-hidden={!menu} inert={!menu} onClick={() => setMenu(false)}><Link to="/bookings">My Bookings</Link><Link to="/wishlist">My Wishlist</Link><Link to="/account">Account Info</Link><Link to="/help">Help &amp; Support</Link>{session.user ? <button onClick={session.logout}>Logout</button> : <Link to={login}>Login</Link>}</nav></div>
++    </div><nav className="category-nav" aria-label="Categories"><div>{categories.map((name, index) => {
++      const to = index === 0 ? '/movies' : `/${name.toLowerCase()}`
++      const active = index === 0 ? location.pathname === '/' || location.pathname.startsWith('/movies') : location.pathname === to || location.pathname.startsWith(`${to}/`)
++      return <Link key={name} to={to} aria-current={active ? 'page' : undefined}>{name}</Link>
++    })}</div></nav></header>
++    <div id="main-content" tabIndex={-1}>{children}</div>
++    {home && <footer className="site-footer graphical-footer print:hidden"><div className="footer-content"><section><Link className="footer-graphic" aria-label="Customer Care / Support" title="Help & Support" to="/help"><svg viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 34v-6a20 20 0 0 1 40 0v6M12 48H8V32h10v16h-6Zm40 0h4V32H46v16h6ZM52 48c0 8-8 10-20 10"/><rect x="26" y="53" width="12" height="7" rx="3" fill="currentColor"/></svg><span>Customer Care / Support</span></Link></section><section><a className="footer-graphic" aria-label="About Developer" title="About Developer" href="https://portfolio-gold-eight-71.vercel.app/#" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3"><rect x="5" y="8" width="54" height="39" rx="5"/><path d="m24 20-9 8 9 8m16-16 9 8-9 8m-5-20-6 25M23 55h18m-9-8v8"/></svg><span>About Developer</span></a></section><section className="footer-brand"><Link className="footer-graphic brand" aria-label="CineHook home" title="Movies — back to top" to="/" onClick={scrollHome}><Brand /></Link></section></div><p className="footer-legal">Sample screenings are for local use, not public cinema listings.</p></footer>}
++    {picker && <LocationDialog onClose={() => setPicker(false)} />}
++    {session.user?.role === 'ADMIN' && <Link className="admin-shortcut print:hidden" to="/admin">Admin</Link>}
++  </>
++}
+
+## frontend/src/components/LocationPin.tsx
+warning: in the working copy of 'frontend/src/components/LocationPin.tsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/components/LocationPin.tsx b/frontend/src/components/LocationPin.tsx
+new file mode 100644
+index 0000000..f82ebe0
+--- /dev/null
++++ b/frontend/src/components/LocationPin.tsx
+@@ -0,0 +1,3 @@
++export function LocationPin() {
++  return <svg className="location-pin" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
++}
+
+## frontend/src/components/BookingFacts.tsx
+warning: in the working copy of 'frontend/src/components/BookingFacts.tsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/components/BookingFacts.tsx b/frontend/src/components/BookingFacts.tsx
+new file mode 100644
+index 0000000..a412e4d
+--- /dev/null
++++ b/frontend/src/components/BookingFacts.tsx
+@@ -0,0 +1,26 @@
++import type { BookingSummary } from '../api/types'
++import { Poster } from './MovieCard'
++import { StatusBadge } from './feedback'
++import { formatDateTime, money } from '../domain/time'
++
++export function BookingFacts({ summary, checkout = false }: { summary: BookingSummary; checkout?: boolean }) {
++  const { booking, show, payment } = summary
++  const paid = payment && ['SUCCESS', 'REFUND_PENDING', 'REFUNDED'].includes(payment.status)
++  return <section className="panel p-6 sm:p-8">
++    {checkout ? <h2 className="text-xl font-semibold">Booking summary</h2> : <div className="flex flex-wrap items-start justify-between gap-3"><h2 className="text-2xl font-semibold">{show.movie.title}</h2><StatusBadge value={booking.status} /></div>}
++    <div className="mt-6 flex gap-5"><Poster movie={show.movie} className="h-28 w-20 shrink-0 rounded-xl" /><div>
++      {checkout && <h3 className="text-xl font-semibold">{show.movie.title}</h3>}<p className="muted text-sm capitalize">{show.movie.genres.join(' • ')} • {show.movie.language} • {show.movie.durationMinutes} min</p>
++      <p className="mt-2">{show.screen.theatre.name}, {show.screen.theatre.city.name}</p><p className="muted mt-1 text-sm">{show.screen.name}</p>
++    </div></div><div className="divider" />
++    <dl className="grid grid-cols-2 gap-5 md:grid-cols-4"><div><dt className="muted text-xs">Show date / time</dt><dd className="mt-1 font-semibold">{formatDateTime(show.startsAt)}</dd></div>
++      <div><dt className="muted text-xs">Seats</dt><dd className="mt-1 font-semibold">{booking.seats.map(seat => `${seat.rowName}${seat.seatNumber}`).join(', ')}</dd></div>
++      <div><dt className="muted text-xs">Tickets</dt><dd className="mt-1 font-semibold">{booking.seats.length}</dd></div><div><dt className="muted text-xs">{checkout ? 'Total' : 'Booking amount'}</dt><dd className="mt-1 font-semibold">{money(booking.totalPaise)}</dd></div>
++    </dl><div className="divider" />
++    {checkout ? <><p className="font-semibold">Have a coupon?</p><div className="mt-3 flex gap-3"><label className="sr-only" htmlFor="coupon">Coupon code</label><input id="coupon" className="input" placeholder="Coupons are not enabled" disabled /><button className="secondary" disabled>Apply</button></div><p className="muted mt-3 text-xs">No extra fees apply. Coupons are currently unavailable.</p></>
++      : <dl className="financial-facts"><div><dt>Booking ID</dt><dd>{booking.id}</dd></div>
++        <div><dt>Booking status</dt><dd>{booking.status}</dd></div>
++        {paid && <div><dt>Amount paid</dt><dd>{money(payment.amountPaise)}</dd></div>}
++        <div><dt>Payment ID</dt><dd>{payment?.providerPaymentId ?? 'Not available'}</dd></div>
++        <div><dt>Payment status</dt><dd>{payment?.status ?? 'NOT INITIATED'}</dd></div></dl>}
++  </section>
++}
+
+## frontend/src/ui-polish.css
+warning: in the working copy of 'frontend/src/ui-polish.css', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/src/ui-polish.css b/frontend/src/ui-polish.css
+new file mode 100644
+index 0000000..fefb154
+--- /dev/null
++++ b/frontend/src/ui-polish.css
+@@ -0,0 +1,76 @@
++/* Compact discovery cards; financial and inventory behavior is unchanged. */
++.movies-home .movie-card .poster { aspect-ratio: 2 / 2.6; overflow: hidden; }
++.movies-home .card-copy { padding: 10px 14px 8px; }
++.movies-home .card-copy p { margin-top: 3px; }
++.movies-home .card-action { padding-bottom: 8px; }
++.movies-home .card-action .btn, .movies-home .card-action .secondary { min-height: 44px; }
++.movie-card .poster img, .demo-listing-art img { transition: transform 230ms ease; }
++.movie-card:hover .poster img, .movie-card:focus-within .poster img,
++.demo-listing:hover .demo-listing-art img, .demo-listing:focus-within .demo-listing-art img { transform: scale(1.035); }
++.demo-listing { transition: transform 180ms ease, border-color 180ms ease; }
++.demo-listing:hover, .demo-listing:focus-within { transform: translateY(-3px); border-color: #ff526670; box-shadow: 0 8px 24px #0003; }
++.listing-card-link { display: block; height: 100%; }
++.listing-card-link:focus-visible { outline: 2px solid #ff5266; outline-offset: -3px; border-radius: 12px; }
++.listing-card-action { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: #ff7585; font-size: 13px; font-weight: 650; }
++.location-pin { width: 20px; height: 22px; flex: 0 0 20px; color: #ff344e; }
++.location-button { display: flex; align-items: center; gap: 8px; }
++.location-button > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
++.city-option .location-pin { margin-inline: auto; }
++.graphical-footer .footer-content { padding-block: 28px; gap: 16px; }
++.graphical-footer .footer-content .footer-graphic { display: flex; flex-direction: column; gap: 9px; text-align: center; padding: 8px; }
++.graphical-footer .footer-content section { align-items: start; }
++.graphical-footer .footer-graphic > svg { width: 50px; height: 50px; }
++.graphical-footer .brand-mark svg { width: 56px; height: 56px; }
++.footer-graphic > span { font-size: 12px; line-height: 1.5; }
++.category-nav a { position: relative; border-color: transparent; }
++.category-nav a[aria-current="page"] { border-color: transparent; }
++.category-nav a::after { content: ''; height: 2px; background: #ff344e; position: absolute; bottom: -2px; left: 0; right: 0; transform: scaleX(0); transform-origin: center; transition: transform 180ms ease; }
++.category-nav a:hover::after, .category-nav a:focus-visible::after, .category-nav a[aria-current="page"]::after { transform: scaleX(1); }
++.account-menu { opacity: 0; transform: translateY(-6px); visibility: hidden; pointer-events: none; transition: opacity 150ms ease, transform 150ms ease, visibility 0s 150ms; }
++.account-menu-open { opacity: 1; transform: translateY(0); visibility: visible; pointer-events: auto; transition-delay: 0s; }
++.btn, .secondary, .icon-button, .danger-outline { transition: transform 130ms ease, background-color 130ms ease, border-color 130ms ease; }
++.btn:active:not(:disabled), .secondary:active:not(:disabled), .icon-button:active:not(:disabled), .danger-outline:active:not(:disabled) { transform: scale(.98); }
++#main-content > main, .focused-layout main { animation: page-enter 180ms ease-out both; }
++.dialog-backdrop { animation: backdrop-enter 150ms ease-out both; }
++.location-dialog, .trailer-dialog { animation: dialog-enter 180ms ease-out both; }
++.seat { transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, transform 100ms ease; }
++.seat:not(:disabled):hover { transform: translateY(-2px); }
++.seat:active:not(:disabled) { transform: scale(.95); }
++.seat-selected { animation: seat-select 130ms ease-out; }
++.listing-back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 20px; color: #c7d1de; font-size: 14px; }
++.listing-feature { overflow: hidden; }
++.listing-detail-art { aspect-ratio: 16 / 5; position: relative; overflow: hidden; background: #0b1928; }
++.listing-detail-art > img { width: 100%; height: 100%; object-fit: cover; }
++.listing-feature-copy { padding: 32px; }
++.listing-feature h1 { font-size: clamp(26px, 3.8vw, 48px); font-weight: 750; line-height: 1.15; margin: 12px 0 22px; overflow-wrap: anywhere; }
++.listing-description { color: #d5deea; line-height: 1.8; max-width: 900px; }
++.listing-facts dl { display: flex; flex-wrap: wrap; gap: 22px 40px; margin: 28px 0; }
++.listing-facts dt { color: #8fa5b9; font-size: 12px; margin-bottom: 6px; }
++.listing-facts dd { font-size: 14px; line-height: 1.6; }
++.listing-city { display: inline-flex; gap: 8px; align-items: center; text-align: left; max-width: 100%; }
++.listing-city-note { font-size: 13px; margin-top: 12px; line-height: 1.7; }
++.listing-availability { margin-top: 22px; padding: 28px 32px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
++.listing-availability h2 { font-size: 20px; font-weight: 650; margin-bottom: 10px; }
++.listing-availability p { max-width: 700px; line-height: 1.8; font-size: 14px; }
++.listing-availability .btn { flex-shrink: 0; }
++@keyframes page-enter { from { opacity: .45; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
++@keyframes backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
++@keyframes dialog-enter { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
++@keyframes seat-select { 50% { transform: scale(1.055); } }
++@media (max-width: 600px) {
++  .movies-home .card-copy { padding: 9px 10px 6px; }
++  .movies-home .card-action { padding: 0 10px 8px; }
++  .location-button { min-height: 44px; }
++  .graphical-footer .footer-content { padding-inline: 12px; gap: 4px; }
++  .footer-graphic > span { font-size: 10px; max-width: 105px; }
++  .listing-detail-art { aspect-ratio: 16 / 9; }
++  .listing-feature-copy { padding: 22px 18px; }
++  .listing-facts dl { gap: 18px 24px; }
++  .listing-availability { padding: 24px 18px; flex-direction: column; align-items: stretch; }
++}
++@media (prefers-reduced-motion: reduce) {
++  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
++  .movie-card:hover, .movie-card:focus-within, .demo-listing:hover, .demo-listing:focus-within, .footer-graphic:hover, .footer-graphic:focus-visible,
++  .movie-card:hover .poster img, .movie-card:focus-within .poster img, .demo-listing:hover .demo-listing-art img, .demo-listing:focus-within .demo-listing-art img,
++  .btn:active, .secondary:active, .icon-button:active, .danger-outline:active, .seat:not(:disabled):hover, .seat:active { transform: none; }
++}
+
+## frontend/tests/ui-polish.test.tsx
+warning: in the working copy of 'frontend/tests/ui-polish.test.tsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/tests/ui-polish.test.tsx b/frontend/tests/ui-polish.test.tsx
+new file mode 100644
+index 0000000..c80ae0a
+--- /dev/null
++++ b/frontend/tests/ui-polish.test.tsx
+@@ -0,0 +1,109 @@
++import { act, render, screen, waitFor, within } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { expect, it, vi } from 'vitest'
++import App from '../src/App'
++import { BookingFacts } from '../src/components/BookingFacts'
++import { city, failure, ids, mockApi, ok, page, summary } from './fixtures'
++
++const listing = { id:'60000000-0000-4000-8000-000000000001', slug:'sample-comedy', kind:'EVENTS', title:'Laugh Lines — DEMO',
++  description:'Fictional stand-up showcase with observational comedy.', category:'Comedy Shows', cityName:'Greater Noida', venueName:'Sample Spotlight Studio',
++  startsAt:'2099-10-12T14:00:00.000Z', durationMinutes:75, imageUrl:'/demo-category-art/events.svg', imageAttribution:'Original CineHook illustration (CC0). Fictional sample event.', isDemo:true, bookingAvailable:false }
++it('keeps checkout wording natural while retaining its trusted amount and unavailable coupons',()=>{
++  render(<BookingFacts summary={summary} checkout />)
++  expect(screen.getByText('Total')).toBeVisible()
++  expect(screen.getByText('₹123.45')).toBeVisible()
++  expect(screen.getByText('No extra fees apply. Coupons are currently unavailable.')).toBeVisible()
++  expect(screen.getByRole('button',{name:'Apply'})).toBeDisabled()
++  expect(screen.queryByText(/server total|added by this client/i)).not.toBeInTheDocument()
++})
++it('uses instant home scrolling when reduced motion is requested', async () => {
++  vi.stubGlobal('matchMedia', () => ({ matches:true, addEventListener:()=>{}, removeEventListener:()=>{} }))
++  window.history.replaceState({}, '', '/'); mockApi(); render(<App />)
++  await userEvent.click(screen.getByRole('link',{name:'CineHook'}))
++  expect(window.scrollTo).toHaveBeenCalledWith({top:0,left:0,behavior:'instant'})
++})
++it('opens a category card detail page and never starts unsupported booking or payment', async () => {
++  window.history.replaceState({}, '', '/events')
++  const calls=mockApi(path=>path==='/api/demo-catalog/events'?ok(page([listing])):path===`/api/demo-catalog/events/${listing.id}`?ok({listing}):undefined)
++  render(<App />)
++  const link=await screen.findByRole('link',{name:`View ${listing.title}`})
++  await userEvent.click(link)
++  expect(await screen.findByRole('heading',{name:listing.title,level:1})).toBeVisible()
++  expect(window.location.pathname).toBe(`/events/${listing.id}`)
++  expect(screen.getByRole('button',{name:'Tickets unavailable'})).toBeDisabled()
++  expect(screen.getByText(listing.venueName)).toBeVisible()
++  expect(screen.getByText(listing.description)).toBeVisible()
++  expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
++  expect(screen.getByRole('navigation',{name:'Categories'}).querySelector('[aria-current="page"]')).toHaveTextContent('Events')
++  expect(calls.some(c=>c.path==='/api/bookings'||c.path.startsWith('/api/payments/'))).toBe(false)
++  await userEvent.click(screen.getByRole('link',{name:'Back to Events'}))
++  expect(await screen.findByRole('heading',{name:listing.title,level:2})).toBeVisible()
++})
++it('changes the selected city in category reads without showing a stale page of old-city results', async () => {
++  window.history.replaceState({}, '', '/sports')
++  let release!:(value:Response)=>void
++  const requests:URL[]=[]
++  mockApi((path,_options,url)=>path==='/api/demo-catalog/sports'?(requests.push(url),url.searchParams.has('cityId')?new Promise(resolve=>{release=resolve}):ok(page([{...listing,kind:'SPORTS'}]))):undefined)
++  render(<App />)
++  await screen.findByRole('heading',{name:listing.title})
++  await userEvent.click(screen.getByRole('button',{name:'All cities'}))
++  const dialog=screen.getByRole('dialog')
++  await userEvent.click(within(dialog).getByRole('radio',{name:city.name}))
++  await userEvent.click(within(dialog).getByRole('button',{name:'Save location'}))
++  await waitFor(()=>expect(requests.at(-1)?.searchParams.get('cityId')).toBe(ids.city))
++  expect(screen.queryByRole('heading',{name:listing.title})).not.toBeInTheDocument()
++  await act(async()=>release(ok(page([]))))
++  expect(await screen.findByRole('heading',{name:'No experiences found'})).toBeVisible()
++})
++it('waits for a saved city before requesting physical experiences', async () => {
++  sessionStorage.setItem('cinehook.city',ids.city)
++  window.history.replaceState({}, '', '/events')
++  let release!:(value:Response)=>void
++  const requests:URL[]=[]
++  mockApi((path,_options,url)=>path==='/api/cities'?new Promise(resolve=>{release=resolve}):path==='/api/demo-catalog/events'?(requests.push(url),ok(page([listing]))):undefined)
++  render(<App />)
++  await act(async()=>{await Promise.resolve()})
++  expect(requests).toHaveLength(0)
++  await act(async()=>release(ok(page([city]))))
++  await waitFor(()=>expect(requests[0]?.searchParams.get('cityId')).toBe(ids.city))
++})
++it('retains an informative unavailable screen for a missing listing and can retry a detail read', async () => {
++  window.history.replaceState({}, '', `/events/${listing.id}`)
++  let available=false
++  mockApi(path=>path===`/api/demo-catalog/events/${listing.id}`?available?ok({listing}):failure(404,'LISTING_NOT_FOUND','private metadata'):undefined)
++  render(<App />)
++  expect(await screen.findByRole('alert')).toHaveTextContent('This item could not be found.')
++  available=true
++  await userEvent.click(screen.getByRole('button',{name:'Retry'}))
++  expect(await screen.findByRole('heading',{name:listing.title,level:1})).toBeVisible()
++})
++it('labels existing footer graphics and keeps their supported destinations', async()=>{
++  window.history.replaceState({}, '', '/'); mockApi(); render(<App />)
++  const footer=screen.getByRole('contentinfo')
++  expect(within(footer).getByText('Customer Care / Support')).toBeVisible()
++  expect(within(footer).getByText('About Developer')).toBeVisible()
++  const support=within(footer).getByRole('link',{name:'Customer Care / Support'})
++  expect(support.querySelector('svg')).not.toBeNull()
++  expect(within(footer).getByRole('link',{name:'About Developer'})).toHaveAttribute('href','https://portfolio-gold-eight-71.vercel.app/#')
++  expect(footer).not.toHaveTextContent(/created for educational|portfolio purposes/i)
++  expect(footer).toHaveTextContent(/sample screenings/i)
++  await userEvent.click(support)
++  expect(await screen.findByRole('heading',{name:'How can we help?'})).toBeVisible()
++})
++it('shows a graphical location pin beside the persistent city and restores focus when the menu closes', async()=>{
++  sessionStorage.setItem('cinehook.access-token','unit-access-token')
++  sessionStorage.setItem('cinehook.city',ids.city)
++  window.history.replaceState({}, '', '/'); mockApi(); render(<App />)
++  const location=await screen.findByRole('button',{name:city.name})
++  expect(location.querySelector('svg')).not.toBeNull()
++  const menu=screen.getByRole('button',{name:'Menu'})
++  await userEvent.click(menu)
++  const accountMenu=screen.getByRole('navigation',{name:'Account menu'})
++  await userEvent.click(within(accountMenu).getByRole('link',{name:'Account Info'}))
++  await waitFor(()=>expect(screen.queryByRole('navigation',{name:'Account menu'})).not.toBeInTheDocument())
++  await userEvent.click(screen.getByRole('button',{name:'Menu'}))
++  within(screen.getByRole('navigation',{name:'Account menu'})).getByRole('link',{name:'My Bookings'}).focus()
++  await userEvent.keyboard('{Escape}')
++  expect(screen.queryByRole('navigation',{name:'Account menu'})).not.toBeInTheDocument()
++  expect(screen.getByRole('button',{name:'Menu'})).toHaveFocus()
++})
+
+## frontend/tests/api.test.ts
+warning: in the working copy of 'frontend/tests/api.test.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/frontend/tests/api.test.ts b/frontend/tests/api.test.ts
+new file mode 100644
+index 0000000..75c3b6e
+--- /dev/null
++++ b/frontend/tests/api.test.ts
+@@ -0,0 +1,159 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++
++// These tests catch altered wire payloads, leaked provider errors, missed expiry
++// clock correction, and stale authentication responses clearing a newer session.
++describe('API boundary', () => {
++  beforeEach(() => { vi.resetModules() })
++  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
++
++  it('unwraps complete success envelopes and serializes IDs only', async () => {
++    const sent: { url: string; body: unknown; authorization: string | null }[] = []
++    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
++      sent.push({ url, body: init.body ? JSON.parse(String(init.body)) : undefined, authorization: new Headers(init.headers).get('Authorization') })
++      return new Response(JSON.stringify({ success: true, data: { booking: { id: 'booking-1', showId: 'show-1', status: 'PENDING', totalPaise: 25000, expiresAt: '2026-10-07T10:05:00Z', confirmedAt: null, failureCode: null, createdAt: '2026-10-07T10:00:00Z', updatedAt: '2026-10-07T10:00:00Z', seats: [{ id: 'bs-1', showId: 'show-1', seatId: 'seat-1', rowName: 'A', seatNumber: 1, seatType: 'REGULAR', pricePaise: 25000 }] } } }), { status: 201 })
++    })
++    const { setAccessToken } = await import('../src/api/client')
++    const { bookingApi } = await import('../src/api/booking')
++    setAccessToken('session-token')
++    const result = await bookingApi.create('show-1', ['seat-1'])
++    expect(result.booking.totalPaise).toBe(25000)
++    expect(sent).toEqual([{ url: '/api/bookings', body: { showId: 'show-1', seatIds: ['seat-1'] }, authorization: 'Bearer session-token' }])
++  })
++
++  it('uses only booking IDs and exact provider signature fields for payment and refund writes', async () => {
++    const sent: { url: string; body: unknown }[] = []
++    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
++      sent.push({ url, body: init.body ? JSON.parse(String(init.body)) : undefined })
++      return new Response(JSON.stringify({ success: true, data: { examined: 0 } }))
++    })
++    const { paymentApi } = await import('../src/api/payment')
++    const { bookingApi } = await import('../src/api/booking')
++    await paymentApi.order('b/1')
++    await paymentApi.verify({ bookingId: 'b/1', razorpay_order_id: 'order-1', razorpay_payment_id: 'pay-1', razorpay_signature: 'sig', amountPaise: 1, paid: true } as Parameters<typeof paymentApi.verify>[0])
++    await bookingApi.cancel('b/1'); await bookingApi.retryRefund('b/1')
++    expect(sent).toEqual([
++      { url: '/api/payments/order', body: { bookingId: 'b/1' } },
++      { url: '/api/payments/verify', body: { bookingId: 'b/1', razorpay_order_id: 'order-1', razorpay_payment_id: 'pay-1', razorpay_signature: 'sig' } },
++      { url: '/api/bookings/b%2F1/cancel', body: {} },
++      { url: '/api/bookings/b%2F1/refund/retry', body: {} },
++    ])
++  })
++
++  it('encodes query values without forwarding unknown query parameters', async () => {
++    let actual = ''
++    vi.stubGlobal('fetch', async (url: string) => { actual = url; return new Response(JSON.stringify({ success: true, data: { items: [], page: 1, limit: 20 } })) })
++    const { catalogApi } = await import('../src/api/catalog')
++    expect((await catalogApi.movies({ search: 'A & B', language: 'Hindi', page: 2, paid: true } as Parameters<typeof catalogApi.movies>[0])).items).toEqual([])
++    expect(actual).toBe('/api/movies?page=2&search=A+%26+B&language=Hindi')
++  })
++
++  it('preserves safe error metadata without exposing raw server details', async () => {
++    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ success: false, error: { code: 'PROVIDER_FAILURE', message: 'key_secret=private', requestId: 'req-42' } }), { status: 503 }))
++    const { api, ApiError } = await import('../src/api/client')
++    const error = await api('/payments/order').catch(value => value)
++    expect(error).toBeInstanceOf(ApiError)
++    expect(error).toMatchObject({ status: 503, code: 'PROVIDER_FAILURE', requestId: 'req-42' })
++    expect((error as Error).message).not.toContain('private')
++  })
++
++  it('rejects foreign destinations and malformed server envelopes safely', async () => {
++    vi.stubGlobal('fetch', async () => new Response('<html>private upstream detail</html>'))
++    const { api } = await import('../src/api/client')
++    await expect(api('https://foreign.test')).rejects.toMatchObject({ code: 'INVALID_API_PATH' })
++    await expect(api('/movies')).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
++  })
++
++  it.each(['<html>private upstream detail</html>', 'null', '{"success":true}'])('uses clear retry guidance for unreadable responses: %s', async content => {
++    vi.stubGlobal('fetch', async () => new Response(content, { status: 200 }))
++    const { api } = await import('../src/api/client')
++    await expect(api('/movies')).rejects.toMatchObject({ status: 200, code: 'INVALID_RESPONSE', message: 'We couldn’t load this information. Please try again.' })
++  })
++
++  it('guides an existing password account without leaking Google collision details', async () => {
++    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ success: false, error: { code: 'GOOGLE_EMAIL_CONFLICT', message: 'private provider identity' } }), { status: 409 }))
++    const { api } = await import('../src/api/client')
++    await expect(api('/auth/google', { method: 'POST', body: {} })).rejects.toMatchObject({ code: 'GOOGLE_EMAIL_CONFLICT', message: expect.stringMatching(/email and password/i) })
++  })
++
++  it('corrects the browser clock from a response Date header', async () => {
++    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-07T09:00:00Z'))
++    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ success: true, data: { items: [], page: 1, limit: 20 } }), { headers: { Date: 'Wed, 07 Oct 2026 10:00:00 GMT' } }))
++    const { api, getServerNow } = await import('../src/api/client')
++    await api('/movies')
++    expect(getServerNow()).toBe(Date.parse('2026-10-07T10:00:00Z'))
++    vi.advanceTimersByTime(2500)
++    expect(getServerNow()).toBe(Date.parse('2026-10-07T10:00:02.500Z'))
++  })
++
++  it('aborts after ten seconds without retrying or exposing network details', async () => {
++    vi.useFakeTimers()
++    let attempts = 0
++    vi.stubGlobal('fetch', () => { attempts += 1; return new Promise(() => {}) })
++    const { api } = await import('../src/api/client')
++    const result = api('/bookings', { method: 'POST', body: { showId: 's', seatIds: ['a'] } }).catch(value => value)
++    await vi.advanceTimersByTimeAsync(10000)
++    expect(await result).toMatchObject({ code: 'REQUEST_TIMEOUT', status: 0 })
++    expect(attempts).toBe(1)
++  })
++
++  it('honors caller cancellation and sanitizes network rejection', async () => {
++    vi.stubGlobal('fetch', () => new Promise(() => {}))
++    const { api } = await import('../src/api/client')
++    const controller = new AbortController()
++    const request = api('/movies', { signal: controller.signal }).catch(value => value)
++    controller.abort()
++    expect(await request).toMatchObject({ name: 'AbortError' })
++    vi.stubGlobal('fetch', async () => { throw new Error('password=secret') })
++    await expect(api('/movies')).rejects.toMatchObject({ code: 'NETWORK_ERROR', message: 'Unable to connect. Please try again.' })
++  })
++
++  it('clears current identity on 401 but ignores an old-session 401', async () => {
++    const { api, setAccessToken } = await import('../src/api/client')
++    const events: unknown[] = []
++    const listener = (event: Event) => events.push((event as CustomEvent).detail)
++    window.addEventListener('cinehook:unauthorized', listener)
++    let finish!: (value: Response) => void
++    vi.stubGlobal('fetch', () => new Promise<Response>(resolve => { finish = resolve }))
++    setAccessToken('old')
++    const pending = api('/auth/me').catch(value => value)
++    setAccessToken('new')
++    finish(new Response(JSON.stringify({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication is required.', requestId: 'r1' } }), { status: 401 }))
++    await pending
++    expect(events).toEqual([])
++    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication is required.', requestId: 'r2' } }), { status: 401 }))
++    await api('/auth/me').catch(() => undefined)
++    expect(events).toEqual([{ token: 'new' }])
++    window.removeEventListener('cinehook:unauthorized', listener)
++  })
++
++  it('does not change the clock or identity when a cancelled transport completes late', async () => {
++    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-07T09:00:00Z'))
++    let finish!: (response: Response) => void
++    vi.stubGlobal('fetch', () => new Promise<Response>(resolve => { finish = resolve }))
++    const { api, setAccessToken, getServerNow } = await import('../src/api/client')
++    setAccessToken('current')
++    const events: Event[] = []
++    const listener = (event: Event) => events.push(event)
++    window.addEventListener('cinehook:unauthorized', listener)
++    const controller = new AbortController()
++    const pending = api('/auth/me', { signal: controller.signal }).catch(value => value)
++    controller.abort(); await pending
++    finish(new Response(JSON.stringify({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication is required.', requestId: 'late' } }), { status: 401, headers: { Date: 'Wed, 07 Oct 2026 10:00:00 GMT' } }))
++    await vi.advanceTimersByTimeAsync(0)
++    expect(getServerNow()).toBe(Date.parse('2026-10-07T09:00:00Z'))
++    expect(events).toEqual([])
++    window.removeEventListener('cinehook:unauthorized', listener)
++  })
++
++  it('expires current identity for a 401 even if an intermediary returns unreadable content', async () => {
++    vi.stubGlobal('fetch', async () => new Response('<html>Unauthorized</html>', { status: 401 }))
++    const { api, setAccessToken } = await import('../src/api/client')
++    setAccessToken('current')
++    const events: unknown[] = []
++    const listener = (event: Event) => events.push((event as CustomEvent).detail)
++    window.addEventListener('cinehook:unauthorized', listener)
++    await api('/auth/me').catch(() => undefined)
++    expect(events).toEqual([{ token: 'current' }])
++    window.removeEventListener('cinehook:unauthorized', listener)
++  })
++})
+

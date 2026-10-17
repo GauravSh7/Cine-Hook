@@ -1,0 +1,25 @@
+/* Venue-only presentation. All seats and tiers come from the live map data. */
+.seat-page .cinema-auditorium .seat-grid { padding: 18px 18px 26px; box-shadow: inset 0 1px #d2eaff20, 0 18px 28px #0005; }
+.seat-page .cinema-auditorium .cinema-row-band { background-image: linear-gradient(180deg, #c2d7ec05, #00000012); }
+.seat-page .cinema-auditorium .seat-row { padding-bottom: 13px; border-bottom: 3px solid #060b1380; box-shadow: 0 1px #b7d9ee12; }
+.seat-page .cinema-auditorium .row-label { color: #c2ccd6; font-size: 11px; font-weight: 600; }
+.seat-page .cinema-auditorium .cinema-tier-heading { margin-top: 28px; font-weight: 650; }
+.seat-page .cinema-auditorium .seat-scroll:focus-visible { outline: 2px solid #c1deec; outline-offset: -2px; border-radius: 8px; }
+.seat-page .cinema-auditorium .seat { scroll-margin: 40px; }
+.venue-atmosphere .venue-section { --tier-light: #afd5df; }
+.venue-atmosphere .venue-section[data-ticket-tiers='PREMIUM'] { --tier-light: #ddbcf4; }
+.venue-atmosphere .venue-section[data-ticket-tiers='VIP'] { --tier-light: #f2cd87; }
+.venue-atmosphere .venue-stadium .venue-section { border-top-color: var(--tier-light); }
+.venue-atmosphere .venue-stadium .venue-section-heading p { color: var(--tier-light); letter-spacing: .06em; }
+.venue-atmosphere .event-seat-available[data-ticket-tier='STANDARD']:not(.event-seat-selected):enabled { background: #173f42; border-color: #8dc4c6; color: #e5f5f4; }
+.venue-atmosphere .event-seat-available[data-ticket-tier='PREMIUM']:not(.event-seat-selected):enabled { background: #382841; border-color: #bb91cf; color: #f0dff7; }
+.venue-atmosphere .event-seat-available[data-ticket-tier='VIP']:not(.event-seat-selected):enabled { background: #433524; border-color: #cda667; color: #ffebc5; }
+.venue-atmosphere .event-seat-available:not(.event-seat-selected):enabled:hover { filter: brightness(1.2); }
+.venue-atmosphere .event-seat { scroll-margin: 40px; }
+.venue-atmosphere .venue-stadium .venue-ground .cricket-oval { transform: perspective(900px) rotateX(9deg); }
+.venue-atmosphere .cricket-boundary-label { font: 9px sans-serif; letter-spacing: 3px; }
+@media (max-width: 767px) {
+  .seat-page .cinema-auditorium .seat-grid { padding: 12px 4px 22px; }
+  .seat-page .cinema-auditorium .cinema-map-hint { line-height: 1.8; }
+  .venue-atmosphere .venue-section-heading { gap: 12px; }
+}

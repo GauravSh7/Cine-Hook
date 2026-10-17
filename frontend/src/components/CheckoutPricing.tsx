@@ -9,7 +9,7 @@ export function CheckoutPricing({quote,busy,onCoupon}:{quote:PricingQuote;busy:b
   const grouped=new Map<string,TaxLine>()
   for(const line of quote.taxes??[]) {const key=`${line.name}:${line.rateBps}`,old=grouped.get(key);grouped.set(key,{...line,amountPaise:line.amountPaise+(old?.amountPaise??0)})}
   return <section className="checkout-pricing">
-    {quote.simulated&&<p className="muted mt-4 text-xs">Test bill · Not a tax invoice</p>}
+    {quote.simulated&&<p className="mt-4 text-sm font-semibold">DEMO RECEIPT — NOT A TAX INVOICE</p>}
     {quote.version===1&&<div className="coupon-panel"><h3 className="font-semibold">Apply Coupon</h3><form className="mt-3 flex gap-2" onSubmit={e=>{e.preventDefault();void submit(code.trim().toUpperCase())}}><label className="sr-only" htmlFor="checkout-coupon">Coupon code</label><input id="checkout-coupon" className="input min-w-0 uppercase" maxLength={20} value={code} onChange={e=>setCode(e.target.value)} placeholder="Enter code" disabled={disabled}/><button className="secondary" disabled={disabled||!code.trim()}>{saving?'Applying…':'Apply'}</button></form>
     {quote.couponCode&&<p className="mt-3 text-sm text-emerald-300">{quote.couponCode} applied <button className="ml-3 underline" disabled={disabled} onClick={()=>void submit(null)}>Remove</button></p>}
     {quote.frozen&&<p className="muted mt-2 text-xs">Your payment total is fixed.</p>}{error&&<p className="mt-3 text-sm text-rose-300" role="alert">{error}</p>}</div>}

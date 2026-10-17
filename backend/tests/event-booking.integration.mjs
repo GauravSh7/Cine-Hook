@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import pg from 'pg';
 import { createClient } from 'redis';
 import { createPrisma } from '../dist/lib/prisma.js';
+import {legacyTicketPolicy} from './helpers/legacy-tax-fixture.mjs';
 
 const url = process.env.EVENT_TEST_DATABASE_URL;
 test('event booking native target, quotes, atomic fulfillment, cancellation and compensation', { skip: !url, timeout: 90000 }, async t => {
@@ -51,6 +52,7 @@ test('event booking native target, quotes, atomic fulfillment, cancellation and 
     await prisma.user.createMany({data:[owner,other].map(id=>({id,name:'Event native',email:`${id}@example.test`}))});
     await prisma.city.create({data:{id:city,name:randomUUID(),state:'Native'}});
     await prisma.event.create({data:{id:event,slug:randomUUID(),title:'Native comedy',description:'Fictional test',kind:'EVENTS',durationMinutes:60}});
+    await legacyTicketPolicy(prisma,event,'event');
     await prisma.eventVenue.create({data:{id:venue,cityId:city,name:'Native venue',address:'Test',kind:'AUDITORIUM',capacity:2,
       sections:{create:{id:section,code:'FRONT',name:'Front',position:'FRONT',sortOrder:0,seats:{create:seats.map((id,i)=>({id,rowName:'A',seatNumber:i+1,ticketTier:i?'VIP':'STANDARD'}))}}}}});
     const session=async(start)=>{const id=randomUUID(); await prisma.eventSession.create({data:{id,eventId:event,venueId:venue,startsAt:start??new Date(Date.UTC(2099,0,++sequence)),prices:{create:[{ticketTier:'STANDARD',pricePaise:10000},{ticketTier:'VIP',pricePaise:15000}]}}}); return id;};
@@ -123,7 +125,7 @@ test('event booking native target, quotes, atomic fulfillment, cancellation and 
       for(const s of seats) await redis.pExpire(`cinehook:event-seat-lock:{${id}}:${s}`,1);
       await new Promise(r=>setTimeout(r,10));await capture(booking,order);
       const view=await refunds.get(owner,booking.id);assert.equal(view.booking.status,'FAILED');assert.equal(view.payment.status,'REFUNDED');
-      assert.equal(view.refunds[0].amountPaise,25000);assert.equal(await prisma.eventConfirmedSeat.count({where:{sessionId:id}}),0);
+      assert.equal(view.refunds[0].amountPaise,order.amountPaise);assert.equal(await prisma.eventConfirmedSeat.count({where:{sessionId:id}}),0);
     });
     await t.test('native target XOR, quote mismatch and immutable target are rejected',async()=>{
       const id=await session();
@@ -218,12 +220,12 @@ test('event booking native target, quotes, atomic fulfillment, cancellation and 
       const delayedGateway={cancel:async(user,bid,scope)=>{const result=await gateway.cancel(user,bid,scope);
         await new Promise(r=>setTimeout(r,Math.max(0,starts.getTime()-Date.now()+30)));return result;}};
       const delayedRefunds=new RefundService(new RefundRepository(prisma),delayedGateway,provider);
-      await rejects(()=>delayedRefunds.cancel(owner,booking.id),'PAYMENT_CONFLICT');
+      await rejects(()=>delayedRefunds.cancel(owner,booking.id),'CANCELLATION_CLOSED');
       assert.equal(await prisma.refund.count({where:{paymentId:(await paymentStore.findByBooking(booking.id)).id}}),0);
       await rejects(()=>refunds.cancel(owner,booking.id),'CANCELLATION_CLOSED');
       assert.equal((await gateway.getById(owner,booking.id)).status,'CONFIRMED');assert.equal(await prisma.eventConfirmedSeat.count({where:{sessionId:id}}),1);
-      await capture(late,lateOrder);const view=await refunds.get(owner,late.id);assert.equal(view.booking.status,'FAILED');assert.equal(view.payment.status,'REFUNDED');
-      assert.equal(view.refunds[0].amountPaise,15000);assert.equal(await prisma.eventConfirmedSeat.count({where:{sessionId:id,seatId:seats[1]}}),0);
+      await capture(late,lateOrder);const view=await refunds.get(owner,late.id);assert.equal(view.booking.status,'CANCELLED');assert.equal(view.payment.status,'REFUNDED');
+      assert.equal(view.refunds[0].amountPaise,lateOrder.amountPaise);assert.equal(await prisma.eventConfirmedSeat.count({where:{sessionId:id,seatId:seats[1]}}),0);
     });
     await t.test('event cancellation and rebooking during Redis inspection are seen as held, then durable allocations win last',async()=>{
       const id=await session(),booking=await create(id),order=(await payments.order(owner,booking.id)).order;await capture(booking,order);
@@ -240,7 +242,7 @@ test('event booking native target, quotes, atomic fulfillment, cancellation and 
         const id=await session(),booking=await create(id),order=(await payments.order(owner,booking.id)).order,input=paymentInput(booking,order);
         await Promise.allSettled([payments.verify(owner,input),gateway.releaseHold(owner,booking.id)]);
         await payments.verify(owner,input);const view=await refunds.get(owner,booking.id);
-        assert.ok(['CONFIRMED','FAILED'].includes(view.booking.status));
+        assert.ok(['CONFIRMED','CANCELLED'].includes(view.booking.status));
         assert.equal(await prisma.eventConfirmedSeat.count({where:{sessionId:id}}),view.booking.status==='CONFIRMED'?2:0);
         assert.equal(view.payment.status,view.booking.status==='CONFIRMED'?'SUCCESS':'REFUNDED');
       }
@@ -272,7 +274,7 @@ test('event booking native target, quotes, atomic fulfillment, cancellation and 
       provider.createRefund=async data=>{assert.notEqual(transactionContext.getStore(),true);if(first){first=false;throw new Error('Injected uncertain refund transport');}return originalRefund(data);};
       await payments.verify(owner,extra);let view=await refunds.get(owner,booking.id);
       assert.equal(view.booking.status,'CONFIRMED');assert.equal(view.payment.status,'SUCCESS');assert.equal(view.refunds.length,1);
-      assert.equal(view.refunds[0].providerPaymentId,extra.razorpay_payment_id);assert.equal(view.refunds[0].amountPaise,25000);
+      assert.equal(view.refunds[0].providerPaymentId,extra.razorpay_payment_id);assert.equal(view.refunds[0].amountPaise,order.amountPaise);
       assert.equal(view.refunds[0].attempts.length,1);const attemptId=view.refunds[0].attempts[0].id;
       await Promise.all([refunds.retry(owner,booking.id),refunds.retry(owner,booking.id)]);
       view=await refunds.get(owner,booking.id);assert.equal(view.refunds[0].status,'REFUNDED');assert.equal(view.refunds[0].attempts.length,1);
@@ -311,6 +313,7 @@ test('event booking native target, quotes, atomic fulfillment, cancellation and 
     await t.test('trusted gateway routes movie creation and financial fulfillment through original movie guards while merging event history',async()=>{
       const theatre=randomUUID(),screen=randomUUID(),movie=randomUUID(),show=randomUUID(),movieSeat=randomUUID();
       await prisma.theatre.create({data:{id:theatre,cityId:city,name:randomUUID(),address:'Test'}});
+      await legacyTicketPolicy(prisma,theatre);
       await prisma.screen.create({data:{id:screen,theatreId:theatre,name:'Movie screen',capacity:1,seats:{create:{id:movieSeat,rowName:'A',seatNumber:1,seatType:'REGULAR'}}}});
       await prisma.movie.create({data:{id:movie,title:'Native movie',description:'Test',durationMinutes:60,releaseDate:new Date('2026-01-01'),language:'english',genres:['drama']}});
       await prisma.show.create({data:{id:show,movieId:movie,screenId:screen,startsAt:new Date('2098-01-01'),endsAt:new Date('2098-01-01T01:00:00Z'),prices:{create:{seatType:'REGULAR',pricePaise:9000}}}});

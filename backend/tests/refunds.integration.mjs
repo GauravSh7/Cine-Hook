@@ -22,6 +22,7 @@ import { AuthService } from '../dist/modules/auth/auth.service.js';
 import { TokenService } from '../dist/modules/auth/token.service.js';
 import { UserRepository } from '../dist/modules/auth/user.repository.js';
 import { HealthService } from '../dist/modules/health/health.service.js';
+import {legacyTicketPolicy} from './helpers/legacy-tax-fixture.mjs';
 
 const databaseUrl = process.env.REFUNDS_TEST_DATABASE_URL;
 const redisUrl = process.env.SEAT_LOCK_TEST_REDIS_URL;
@@ -66,7 +67,7 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
         const paymentId = refundPath[1], key = new Headers(options.headers).get('X-Refund-Idempotency');
         const body = JSON.parse(options.body); assert.match(key, uuid); assert.match(body.receipt, uuid);
         assert.deepEqual(Object.keys(body).sort(), ['amount', 'receipt', 'speed']);
-        assert.equal(body.amount, 25000); assert.equal(body.speed, 'normal'); assert.equal(body.receipt, key);
+        assert.equal(body.amount, providerPayments.get(paymentId).amount); assert.equal(body.speed, 'normal'); assert.equal(body.receipt, key);
         requests.push({ paymentId, key, body: options.body, method: 'POST' });
         if (cancelledSources.has(paymentId)) {
           const id = cancelledSources.get(paymentId);
@@ -74,7 +75,7 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
           assert.equal(committed.status, 'CANCELLED', 'Cancellation must be visible to another database read before provider HTTP.');
           assert.equal(await prisma.confirmedSeat.count({ where: { bookingSeat: { bookingId: id } } }), 0);
           const durable = await prisma.refund.findUnique({ where: { providerPaymentId: paymentId }, include: { attempts: true } });
-          assert.equal(durable.amountPaise, 25000n); assert.equal(durable.currency, 'INR');
+          assert.equal(durable.amountPaise, BigInt(providerPayments.get(paymentId).amount)); assert.equal(durable.currency, 'INR');
           assert.ok(durable.attempts.some(attempt => attempt.id === key));
         }
         if (outages.has(paymentId)) throw new Error('Injected refund provider outage');
@@ -177,6 +178,7 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
       id, role, name: 'Refund integration', email: `refund-${id}@example.com`, passwordHash: 'integration-only-unusable-hash' } });
     await prisma.city.create({ data: { id: cityId, name: `Refund ${cityId}`, state: 'Test' } });
     await prisma.theatre.create({ data: { id: theatreId, cityId, name: 'Refund theatre', address: 'Test road' } });
+    await legacyTicketPolicy(prisma,theatreId);
     await prisma.screen.create({ data: { id: screenId, theatreId, name: 'Refund screen', capacity: 2 } });
     await prisma.seat.createMany({ data: seatIds.map((id, index) => ({ id, screenId, rowName: 'A', seatNumber: index + 1, seatType: index ? 'PREMIUM' : 'REGULAR' })) });
     await prisma.movie.create({ data: { id: movieId, title: `Refund ${movieId}`, description: 'Test', durationMinutes: 100,
@@ -187,17 +189,17 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
       const quotes = await prisma.bookingSeat.findMany({ where: { bookingId: f.bookingId }, orderBy: { seatId: 'asc' } }); markCancelling(f);
       const response = await cancel(f.bookingId); assert.equal(response.status, 200, JSON.stringify(response.body));
       assert.equal(response.body.data.booking.status, 'CANCELLED'); assert.equal(response.body.data.payment.status, 'REFUNDED');
-      assert.equal(response.body.data.refunds[0].amountPaise, 25000); assert.equal(response.headers['cache-control'], 'no-store');
+      assert.equal(response.body.data.refunds[0].amountPaise, 25700); assert.equal(response.headers['cache-control'], 'no-store');
       const after = await cancelled(f); assert.equal(after.refunds.length, 1); assert.equal(after.refunds[0].status, 'REFUNDED');
       assert.deepEqual(after.capturedAt, before.capturedAt); assert.deepEqual(after.bookingFinalizedAt, before.bookingFinalizedAt);
       assert.deepEqual(await prisma.bookingSeat.findMany({ where: { bookingId: f.bookingId }, orderBy: { seatId: 'asc' } }), quotes);
-      assert.equal((await view(f.bookingId)).body.data.refunds[0].amountPaise, 25000);
+      assert.equal((await view(f.bookingId)).body.data.refunds[0].amountPaise, 25700);
       assert.deepEqual(contractErrors, []);
     });
     await t.test('provider outage leaves durable cancelled booking, pending full refund and reusable seats', async () => {
       const f = await fresh(); outages.add(f.value.id); markCancelling(f);
       assert.equal((await cancel(f.bookingId)).status, 202); const stored = await cancelled(f, true);
-      assert.equal(stored.refunds.length, 1); assert.equal(stored.refunds[0].amountPaise, 25000n);
+      assert.equal(stored.refunds.length, 1); assert.equal(stored.refunds[0].amountPaise, 25700n);
       assert.equal(stored.refunds[0].attempts.length, 1); assert.equal(stored.refunds[0].attempts[0].providerRefundId, null);
       assert.ok(stored.refunds[0].attempts[0].lastErrorCode); assert.deepEqual(contractErrors, []);
       const rebook = await create(f.showId, otherToken); assert.equal(rebook.status, 201, JSON.stringify(rebook.body));
@@ -345,9 +347,9 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
     await t.test('released unpaid booking gets full captured compensation and never revives on verification replay', async () => {
       const f = await fresh(false); assert.equal((await request(app).delete(`/api/bookings/${f.bookingId}/hold`).set('Authorization', `Bearer ${token}`)).status, 200);
       assert.equal((await verify(f.bookingId, f.value)).status, 200);
-      const result = await financial(f.bookingId); assert.equal(result.status, 'REFUNDED'); assert.equal(result.refunds[0].amountPaise, 25000n);
+      const result = await financial(f.bookingId); assert.equal(result.status, 'REFUNDED'); assert.equal(result.refunds[0].amountPaise, 25700n);
       assert.equal(result.reconciliation.compensationRequired, true); assert.ok(result.reconciliation.resolvedAt);
-      assert.equal((await prisma.booking.findUnique({ where: { id: f.bookingId } })).status, 'FAILED');
+      assert.equal((await prisma.booking.findUnique({ where: { id: f.bookingId } })).status, 'CANCELLED');
       assert.equal((await webhook(f.value)).status, 200); assert.equal(await prisma.confirmedSeat.count({ where: { showId: f.showId } }), 0);
     });
     await t.test('capture for a never fulfilled expired ticket after showtime gets full compensation with no allocation revival', async () => {
@@ -373,7 +375,7 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
       assert.equal((await prisma.booking.findUnique({ where: { id: f.bookingId } })).status, 'CONFIRMED');
       assert.equal(await prisma.confirmedSeat.count({ where: { showId: f.showId } }), 2);
       assert.equal(result.refunds.length, 2); assert.deepEqual(new Set(result.refunds.map(value => value.providerPaymentId)), new Set([extra.id, extra2.id]));
-      assert.ok(result.refunds.every(value => value.status === 'REFUNDED' && value.amountPaise === 25000n));
+      assert.ok(result.refunds.every(value => value.status === 'REFUNDED' && value.amountPaise === 25700n));
       assert.equal(await prisma.refund.count({ where: { providerPaymentId: f.value.id } }), 0);
       assert.equal((await verify(f.bookingId, f.value)).status, 200); assert.equal((await financial(f.bookingId)).status, 'SUCCESS');
     });
@@ -384,7 +386,7 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
       assert.equal(pending.refunds.length, 2); assert.equal((await refundFor(f.value.id)).status, 'REFUNDED');
       assert.equal((await refundFor(extra.id)).status, 'PENDING'); outages.delete(extra.id);
       assert.equal((await retry(f.bookingId)).status, 200); const result = await cancelled(f);
-      assert.equal(result.refunds.length, 2); assert.equal(result.refunds.reduce((sum, value) => sum + value.amountPaise, 0n), 50000n);
+      assert.equal(result.refunds.length, 2); assert.equal(result.refunds.reduce((sum, value) => sum + value.amountPaise, 0n), 51400n);
       assert.equal((await refundFor(f.value.id)).attempts[0].id, first.attempts[0].id);
       assert.equal((await webhook(extra)).status, 200); assert.equal((await financial(f.bookingId)).refunds.length, 2);
     });
@@ -487,6 +489,8 @@ test('Refund HTTP with real PostgreSQL/Redis and actual Razorpay adapter on cont
       await tx.seat.deleteMany({ where: { id: { in: seatIds } } });
       await tx.screen.deleteMany({ where: { id: screenId } }); await tx.theatre.deleteMany({ where: { id: theatreId } });
       await tx.city.deleteMany({ where: { id: cityId } }); await tx.movie.deleteMany({ where: { id: movieId } });
+      await tx.firstBookingOffer.deleteMany({where:{userId:{in:[userId,otherUserId,adminId]}}});
+      await tx.pricingTaxPolicy.deleteMany({where:{key:`movie:${theatreId}:integration-ticket-only`}});
       await tx.user.deleteMany({ where: { id: { in: [userId, otherUserId, adminId] } } });
     }, { timeout: 15000 });
     if (!redis.isOpen) await redis.connect();
