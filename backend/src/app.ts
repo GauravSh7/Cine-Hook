@@ -35,11 +35,12 @@ import type { EventCatalog } from './modules/events/event.types.js';
 import { eventRoutes } from './modules/events/event.routes.js';
 import { eventBookingRoutes } from './modules/event-booking/event-booking.routes.js';
 import type { EventBookingService } from './modules/event-booking/event-booking.service.js';
+import type { PasswordResetService } from './modules/auth/password-reset.service.js';
 
 export function createApp(dependencies: {
   frontendOrigin: string;
   healthService: HealthService;
-  auth: { service: AuthService; tokens: TokenService; google?: GoogleAuth };
+  auth: { service: AuthService; tokens: TokenService; google?: GoogleAuth; recovery?: PasswordResetService };
   catalog: CatalogServices;
   shows?: ShowServices;
   booking?: BookingServices;
@@ -69,7 +70,7 @@ export function createApp(dependencies: {
   if (dependencies.demoCatalog) app.use('/api/demo-catalog', demoCatalogRoutes(dependencies.demoCatalog));
   if (dependencies.events) app.use('/api', eventRoutes(dependencies.events));
   if (dependencies.booking || dependencies.eventBooking) app.use('/api', eventBookingRoutes(dependencies.eventBooking, dependencies.auth));
-  app.use('/api/auth', authRoutes(dependencies.auth.service, dependencies.auth.tokens, dependencies.frontendOrigin, dependencies.auth.google));
+  app.use('/api/auth', authRoutes(dependencies.auth.service, dependencies.auth.tokens, dependencies.frontendOrigin, dependencies.auth.google, dependencies.auth.recovery));
   if (dependencies.account) app.use('/api/account', accountRoutes(dependencies.account, dependencies.auth));
   if (dependencies.wishlist) app.use('/api/wishlist', wishlistRoutes(dependencies.wishlist, dependencies.auth));
   if (dependencies.uiRead) app.use('/api', uiReadRoutes(dependencies.uiRead, dependencies.auth));

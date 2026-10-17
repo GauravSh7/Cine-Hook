@@ -17,16 +17,17 @@ export class AuthService {
     }
     const passwordHash = await bcrypt.hash(input.password, 12);
     const user = await this.users.create({ name: input.name, email: input.email, passwordHash });
-    return this.authResponse(user);
+    return this.authResponse(user, undefined, passwordHash);
   }
 
   async login(input: LoginInput) {
+    const authenticatedAtMs = Date.now();
     const user = await this.users.findByEmail(input.email);
     const matches = await bcrypt.compare(input.password, user?.passwordHash ?? dummyHash);
     if (!user || !user.passwordHash || !matches) {
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect.');
     }
-    return this.authResponse(user);
+    return this.authResponse(user, authenticatedAtMs, user.passwordHash);
   }
 
   async getMe(userId: string): Promise<PublicUser> {
@@ -35,7 +36,7 @@ export class AuthService {
     return toPublicUser(user);
   }
 
-  private authResponse(user: StoredUser | PublicUser) {
-    return { user: toPublicUser(user), accessToken: this.tokens.sign({ userId: user.id, role: user.role }), tokenType: 'Bearer' };
+  private authResponse(user: StoredUser | PublicUser, authenticatedAtMs?: number, passwordHash?: string) {
+    return { user: toPublicUser(user), accessToken: this.tokens.sign({ userId: user.id, role: user.role }, authenticatedAtMs, passwordHash), tokenType: 'Bearer' };
   }
 }

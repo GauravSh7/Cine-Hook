@@ -10,6 +10,7 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { BookingPage } from './pages/BookingPage'
 import { BookingsPage } from './pages/BookingsPage'
 import { AuthPage } from './pages/AuthPage'
+import { PasswordRecoveryPage } from './pages/PasswordRecoveryPage'
 import { AdminPage } from './pages/AdminPage'
 import { RouteScope } from './components/RouteScope'
 import { NavigationEffects } from './app/NavigationEffects'
@@ -27,6 +28,8 @@ export default function App() {
   return <BrowserRouter><SessionProvider><CityProvider><NavigationEffects /><Routes>
     <Route path="/login" element={<RouteScope><AuthPage /></RouteScope>} />
     <Route path="/register" element={<RouteScope><AuthPage register /></RouteScope>} />
+    <Route path="/forgot-password" element={<RouteScope><PasswordRecoveryPage /></RouteScope>} />
+    <Route path="/reset-password" element={<PasswordRecoveryPage reset />} />
     <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
     <Route path="/movies" element={<PublicLayout><HomePage /></PublicLayout>} />
     {(['stream', 'events', 'sports', 'activities'] as const).map(category => <Route key={category} path={`/${category}`} element={<PublicLayout><RouteScope><CategoryPage category={category}/></RouteScope></PublicLayout>}/>)}

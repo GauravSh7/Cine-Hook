@@ -14,6 +14,9 @@ export function setAccessToken(token: string | null): void { accessToken = token
 export function getServerNow(): number { return Date.now() + serverOffsetMs }
 
 const safeMessages: Record<string, string> = {
+  PASSWORD_RESET_UNAVAILABLE: 'Password reset email is currently unavailable. Please try again later or use Google sign-in for your linked account.',
+  PASSWORD_RESET_INVALID: 'This reset link is invalid or expired. Request a new link.',
+  AUTH_TEMPORARILY_UNAVAILABLE: 'Sign-in is temporarily unavailable. Please try again.',
   GOOGLE_LINK_PROOF_REQUIRED:'Confirm your current password and choose the Google account with the same email. Then retry.',
   GOOGLE_LINK_CONFLICT:'This Google identity could not be linked. Sign in again and retry.',
   COUPON_INVALID:'This coupon is not valid. Try FIRST50 or SAVE10.', FIRST_OFFER_UNAVAILABLE:'Your first-booking offer has already been used or is reserved for another checkout.',

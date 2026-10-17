@@ -36,6 +36,7 @@
 .faq-item [hidden] { display: none; }
 .discovery-loading { min-height: 78dvh; display: flex; align-items: center; justify-content: center; gap: 13px; padding: 24px 16px; color: #f4f5f7; font-size: 14px; font-weight: 550; background: #070a0f; }
 .discovery-loading-spinner { width: 21px; height: 21px; flex: none; border: 2px solid #ffffff25; border-top-color: #ff3048; border-right-color: #ff3048a8; border-radius: 50%; box-shadow: 0 0 16px #f1243b44; animation: discovery-spin .8s linear infinite; }
+.recovery-panel { width: min(100%, 480px); margin: 48px auto; padding: clamp(24px, 5vw, 40px); }
 @keyframes discovery-spin { to { transform: rotate(360deg); } }
 @media (max-width: 600px) { .auth-home .brand { font-size: 23px; } .auth-home .secondary { font-size: 12px; padding: 10px; } .graphical-footer .footer-content { gap: 12px; } }
 @media (prefers-reduced-motion: reduce) { .footer-graphic { transition: none; } }
