@@ -1,4 +1,5 @@
 import express from 'express';
+import { maintenanceGuard } from './middleware/maintenance.js';
 import { createAuthClientAddress } from './middleware/auth-client-address.js';
 import { catalogueStatusRoutes } from './modules/catalogue-status/catalogue-status.routes.js';
 import { pricingRoutes } from './modules/pricing/pricing.routes.js';
@@ -41,6 +42,7 @@ import type { PasswordResetService } from './modules/auth/password-reset.service
 
 export function createApp(dependencies: {
   frontendOrigin: string;
+  maintenanceMode?: boolean;
   authTrustedProxyCidrs?: string[];
   healthService: HealthService;
   auth: { service: AuthService; tokens: TokenService; google?: GoogleAuth; recovery?: PasswordResetService; ownership?: OwnershipService };
@@ -60,6 +62,7 @@ export function createApp(dependencies: {
   const app = express();
   const authAddress = createAuthClientAddress(dependencies.authTrustedProxyCidrs ?? []);
   app.disable('x-powered-by');
+  if (dependencies.maintenanceMode) app.use(maintenanceGuard);
   app.use(requestId);
   app.use(helmet());
   app.use(cors({ origin: [dependencies.frontendOrigin], credentials: true }));

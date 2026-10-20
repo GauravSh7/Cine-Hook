@@ -8,6 +8,7 @@ const optionalCredential = (minimum: number) => z.preprocess(value =>
   typeof value === 'string' && !value.trim() ? undefined : value, z.string().min(minimum).max(512).optional());
 const createSchema = (approvedStagingFingerprint: string) => z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  MAINTENANCE_MODE: z.enum(['true', 'false']).default('false'),
   AUTH_TRUSTED_PROXY_CIDRS: z.string().default('').transform(value => value.trim() ? value.split(',').map(item => item.trim()) : [])
     .refine(value => { try { createAuthClientAddress(value); return true; } catch { return false; } }),
   AUTH_OTP_RATE_LIMIT_MODE: z.enum(['network', 'mailbox-budget']).default('network'),
@@ -73,6 +74,7 @@ export function parseConfig(env: Record<string, string | undefined>, approvedSta
   }
   return {
     nodeEnv: result.data.NODE_ENV,
+    maintenanceMode: result.data.MAINTENANCE_MODE === 'true',
     authTrustedProxyCidrs: result.data.AUTH_TRUSTED_PROXY_CIDRS,
     ownershipProofLimits: result.data.AUTH_OTP_RATE_LIMIT_MODE === 'mailbox-budget'
       ? { dailyEmailBudget: result.data.AUTH_OTP_DAILY_EMAIL_BUDGET } : undefined,

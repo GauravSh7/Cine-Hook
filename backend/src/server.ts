@@ -51,6 +51,7 @@ const ownership = new OwnershipService(ownershipUsers, new OwnershipProofStore(r
 const eventBooking = createEventBooking(prisma, redis);
 const booking = { bookings: new BookingGateway(new BookingTargetRepository(prisma), createBooking(prisma, redis).bookings, eventBooking) };
 const app = createApp({ frontendOrigin: config.frontendOrigin,
+  maintenanceMode: config.maintenanceMode,
   authTrustedProxyCidrs: config.authTrustedProxyCidrs,
   catalogueStage: { databaseUrl: config.databaseUrl, staging: config.stagingCatalogueMode, testPaymentsAllowed: config.stagingRazorpayTestCheckout },
   healthService: new HealthService(new HealthRepository(prisma, redis)),
