@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createAuthClientAddress } from '../middleware/auth-client-address.js';
 import { APPROVED_STAGING_TARGET_FINGERPRINT, catalogueTargetFingerprint } from '../lib/catalogue-stage.js';
 
 const connectionUrl = (protocols: string[]) => z.string().url().refine(value =>
@@ -7,6 +8,8 @@ const optionalCredential = (minimum: number) => z.preprocess(value =>
   typeof value === 'string' && !value.trim() ? undefined : value, z.string().min(minimum).max(512).optional());
 const createSchema = (approvedStagingFingerprint: string) => z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  AUTH_TRUSTED_PROXY_CIDRS: z.string().default('').transform(value => value.trim() ? value.split(',').map(item => item.trim()) : [])
+    .refine(value => { try { createAuthClientAddress(value); return true; } catch { return false; } }),
   DEV_RAZORPAY_TEST_CHECKOUT: z.enum(['true','false']).default('false'),
   STAGING_RAZORPAY_TEST_CHECKOUT: z.enum(['true','false']).default('false'),
   STAGING_CATALOGUE_MODE: z.enum(['true','false']).default('false'),
@@ -67,6 +70,7 @@ export function parseConfig(env: Record<string, string | undefined>, approvedSta
   }
   return {
     nodeEnv: result.data.NODE_ENV,
+    authTrustedProxyCidrs: result.data.AUTH_TRUSTED_PROXY_CIDRS,
     devRazorpayTestCheckout: result.data.DEV_RAZORPAY_TEST_CHECKOUT==='true',
     stagingRazorpayTestCheckout: result.data.STAGING_RAZORPAY_TEST_CHECKOUT==='true',
     stagingCatalogueMode: result.data.STAGING_CATALOGUE_MODE==='true',

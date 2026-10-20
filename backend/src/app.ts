@@ -1,4 +1,5 @@
 import express from 'express';
+import { createAuthClientAddress } from './middleware/auth-client-address.js';
 import { catalogueStatusRoutes } from './modules/catalogue-status/catalogue-status.routes.js';
 import { pricingRoutes } from './modules/pricing/pricing.routes.js';
 import type { PricingService } from './modules/pricing/pricing.service.js';
@@ -40,6 +41,7 @@ import type { PasswordResetService } from './modules/auth/password-reset.service
 
 export function createApp(dependencies: {
   frontendOrigin: string;
+  authTrustedProxyCidrs?: string[];
   healthService: HealthService;
   auth: { service: AuthService; tokens: TokenService; google?: GoogleAuth; recovery?: PasswordResetService; ownership?: OwnershipService };
   catalog: CatalogServices;
@@ -56,6 +58,7 @@ export function createApp(dependencies: {
   catalogueStage?: { databaseUrl: string; staging: boolean; testPaymentsAllowed?: boolean };
 }) {
   const app = express();
+  const authAddress = createAuthClientAddress(dependencies.authTrustedProxyCidrs ?? []);
   app.disable('x-powered-by');
   app.use(requestId);
   app.use(helmet());
@@ -71,7 +74,8 @@ export function createApp(dependencies: {
   if (dependencies.demoCatalog) app.use('/api/demo-catalog', demoCatalogRoutes(dependencies.demoCatalog));
   if (dependencies.events) app.use('/api', eventRoutes(dependencies.events));
   if (dependencies.booking || dependencies.eventBooking) app.use('/api', eventBookingRoutes(dependencies.eventBooking, dependencies.auth));
-  app.use('/api/auth', authRoutes(dependencies.auth.service, dependencies.auth.tokens, dependencies.frontendOrigin, dependencies.auth.google, dependencies.auth.recovery, dependencies.auth.ownership));
+  app.use('/api/auth', (req, res, next) => { res.locals.authClientAddress = authAddress(req); next(); },
+    authRoutes(dependencies.auth.service, dependencies.auth.tokens, dependencies.frontendOrigin, dependencies.auth.google, dependencies.auth.recovery, dependencies.auth.ownership));
   if (dependencies.account) app.use('/api/account', accountRoutes(dependencies.account, dependencies.auth));
   if (dependencies.wishlist) app.use('/api/wishlist', wishlistRoutes(dependencies.wishlist, dependencies.auth));
   if (dependencies.uiRead) app.use('/api', uiReadRoutes(dependencies.uiRead, dependencies.auth));
