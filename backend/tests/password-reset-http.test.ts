@@ -23,7 +23,7 @@ it('provides a safe recovery error when email delivery is not configured', async
 
 it('exposes OTP verification without disclosing the code and protects its request origin', async () => {
   const tokens = new TokenService({ secret: 'reset-http-secret-only-123456789012345', expiresInSeconds: 86400 });
-  const user = { id: randomUUID(), email: 'reset@example.com', passwordHash: await bcrypt.hash('old-password', 4) };
+  const user = { id: randomUUID(), email: 'reset@example.com', passwordHash: await bcrypt.hash('old-password', 4), emailVerifiedAt: new Date(), authVersion: 0, authDisabledAt: null };
   let otp = '';
   const challenges = new Map<string, RecoveryOtp>(), grants = new Map<string, RecoveryToken>();
   const recovery = new PasswordResetService({ findByEmail: async email => email === user.email ? user : null,

@@ -25,7 +25,8 @@ export class UserRepository implements UserStore {
 
   async findByEmail(email: string): Promise<StoredUser | null> {
     // Credentials are read only for login. Hash never reaches the controller.
-    return this.prisma.user.findUnique({ where: { email }, select: { ...publicSelect, passwordHash: true } });
+    return this.prisma.user.findUnique({ where: { email }, select: { ...publicSelect, passwordHash: true,
+      googleSubject: true, authVersion: true, emailVerifiedAt: true, authDisabledAt: true } });
   }
 
   async findById(id: string): Promise<PublicUser | null> {

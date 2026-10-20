@@ -47,4 +47,10 @@ export class BrevoRecoveryMailer implements RecoveryMailer {
     await this.sendMessage(email, 'Your CineHook password reset code',
       `Your CineHook password reset code is:\n\n${otp}\n\nThis code expires in 10 minutes and can be used once. Never share it. If you did not request this code, ignore this email.`);
   }
+  async sendVerificationCode(email: string, otp: string, purpose: 'REGISTER'|'VERIFY_LEGACY'|'CLEAN_START'|'RESET_PASSWORD') {
+    const action = { REGISTER: 'Create your CineHook account', VERIFY_LEGACY: 'Verify your existing CineHook account',
+      CLEAN_START: 'Create a clean account on CineHook', RESET_PASSWORD: 'Reset your CineHook password' }[purpose];
+    await this.sendMessage(email, action,
+      `${action}\n\nYour verification code is: ${otp}\n\nThis code expires in 10 minutes and can be used once for this action only. Never share it. If you did not request this action, ignore this email.${purpose === 'CLEAN_START' ? '\n\nPrevious private history is not transferred to the clean account.' : ''}`);
+  }
 }

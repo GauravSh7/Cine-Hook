@@ -11,7 +11,9 @@ export function authMiddleware(tokens: TokenService): RequestHandler {
     }
     try {
       // Request-local identity only; no shared session/auth state in this process.
-      res.locals.identity = await tokens.verifySession(match[1]);
+      const authenticated = await tokens.authenticate(match[1]);
+      res.locals.identity = authenticated.identity;
+      res.locals.authUser = authenticated.user;
       next();
     } catch (error) { next(error); }
   };

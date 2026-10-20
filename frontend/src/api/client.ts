@@ -14,6 +14,14 @@ export function setAccessToken(token: string | null): void { accessToken = token
 export function getServerNow(): number { return Date.now() + serverOffsetMs }
 
 const safeMessages: Record<string, string> = {
+  EMAIL_VERIFICATION_REQUIRED: 'Verify your email and existing password before signing in. Use account recovery below.',
+  OWNERSHIP_CONTINUITY_REQUIRED: 'This account needs additional ownership proof. Verify your existing password and email, or create a clean account without previous history. Google users should sign in with Google.',
+  OWNERSHIP_PROOF_INVALID: 'Verification is invalid or expired. Request a new code and try again.',
+  OWNERSHIP_CONFLICT: 'Account ownership changed. Start again; no accounts were merged.',
+  OWNERSHIP_RATE_LIMITED: 'Too many verification requests. Please try again later.',
+  OWNERSHIP_EMAIL_UNAVAILABLE: 'Email verification is temporarily unavailable. Please try again later.',
+  GOOGLE_OWNERSHIP_CONFIRMATION_REQUIRED: 'Confirm Google ownership to remove the old unverified password and sign out existing sessions.',
+  GOOGLE_EMAIL_PROOF_REQUIRED: 'Additional email ownership verification is required. Use account recovery or verified registration before linking Google.',
   PASSWORD_RESET_UNAVAILABLE: 'Password reset email is currently unavailable. Please try again later or use Google sign-in for your linked account.',
   PASSWORD_RESET_INVALID: 'This code or reset session is invalid or expired. Request a new code.',
   PASSWORD_REUSED: 'Your new password must be different from your current password.',

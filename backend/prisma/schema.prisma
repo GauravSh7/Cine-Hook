@@ -57,6 +57,11 @@ model User {
   email        String   @unique @db.VarChar(254)
   passwordHash String?  @map("password_hash") @db.VarChar(60)
   googleSubject String? @unique @map("google_subject") @db.VarChar(255)
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  authDisabledAt DateTime? @map("auth_disabled_at") @db.Timestamptz(3)
+  authVersion Int @default(0) @map("auth_version")
+  quarantinedAccount AccountQuarantine? @relation("QuarantinedUser")
+  replacementAccount AccountQuarantine? @relation("ReplacementUser")
   role         UserRole @default(USER)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -69,6 +74,19 @@ model User {
   firstBookingOffer FirstBookingOffer?
 
   @@map("users")
+}
+
+model AccountQuarantine {
+  id String @id @default(uuid()) @db.Uuid
+  originalUserId String @unique @map("original_user_id") @db.Uuid
+  replacementUserId String @unique @map("replacement_user_id") @db.Uuid
+  originalEmail String @map("original_email") @db.VarChar(254)
+  reason String @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  originalUser User @relation("QuarantinedUser", fields: [originalUserId], references: [id], onDelete: Restrict)
+  replacementUser User @relation("ReplacementUser", fields: [replacementUserId], references: [id], onDelete: Restrict)
+
+  @@map("account_quarantines")
 }
 
 model Movie {

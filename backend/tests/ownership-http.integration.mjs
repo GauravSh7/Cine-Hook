@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { test } from 'node:test';
+import request from 'supertest';
+import { createClient } from 'redis';
+import { createPrisma } from '../src/lib/prisma.ts';
+import { createApp } from '../src/app.ts';
+import { OwnershipRepository } from '../src/modules/auth/ownership.repository.ts';
+import { OwnershipService } from '../src/modules/auth/ownership.service.ts';
+import { OwnershipProofStore } from '../src/modules/auth/ownership-proof.store.ts';
+import { TokenService } from '../src/modules/auth/token.service.ts';
+import { AuthService } from '../src/modules/auth/auth.service.ts';
+import { UserRepository } from '../src/modules/auth/user.repository.ts';
+import { HealthService } from '../src/modules/health/health.service.ts';
+import { testCatalog } from './helpers/catalog.ts';
+
+const url = process.env.OWNERSHIP_REPOSITORY_TEST_DATABASE_URL, redisUrl = process.env.OWNERSHIP_PROOF_TEST_REDIS_URL;
+test('real HTTP registration requires OTP, rejects replay, logs in and checks /me with one snapshot read', { skip: !url || !redisUrl }, async () => {
+  assert.equal(new URL(url).host, '127.0.0.1:55448'); assert.equal(new URL(url).pathname, '/cinehook_ownership_migration_test'); assert.equal(redisUrl, 'redis://127.0.0.1:55449/15');
+  const prisma = createPrisma(url), redis = createClient({ url: redisUrl }); await redis.connect();
+  const repo = new OwnershipRepository(prisma), secret = 'isolated-http-ownership-secret-only-123456789012345';
+  let lookups = 0, otp;
+  const tokens = new TokenService({ secret, expiresInSeconds: 600, currentAuth: id => { lookups++; return repo.authSnapshot(id); } });
+  const ownership = new OwnershipService(repo, new OwnershipProofStore(redis, secret), tokens, { secret, mailer: { sendOtp: async (_email, code) => { otp = code; } } });
+  const service = new AuthService(new UserRepository(prisma), tokens, ownership);
+  const app = createApp({ frontendOrigin: 'http://localhost:5173', auth: { service, tokens, ownership }, catalog: testCatalog().services,
+    healthService: new HealthService({ checkDatabase: async () => {}, checkRedis: async () => {} }) });
+  const email = `${randomUUID()}@example.test`, credentials = { name: 'Owner', email, password: 'strong-owner-password-123' };
+  try {
+    assert.equal((await request(app).post('/api/auth/register').send(credentials)).status, 403);
+    const forbidden = await request(app).post('/api/auth/ownership/request').set('Origin', 'https://untrusted.example').send({ purpose: 'REGISTER', email });
+    assert.equal(forbidden.status, 403);
+    const challenge = await request(app).post('/api/auth/ownership/request').send({ purpose: 'REGISTER', email }); assert.equal(challenge.status, 200);
+    assert.ok(!JSON.stringify(challenge.body).includes(otp)); assert.match(challenge.headers['cache-control'], /no-store/);
+    let proof = await request(app).post('/api/auth/ownership/verify').send({ challengeId: challenge.body.data.challengeId, otp }); assert.equal(proof.status, 200);
+    const differentEmail = `${randomUUID()}@example.test`;
+    const mismatched = await request(app).post('/api/auth/register').send({ ...credentials, email: differentEmail, registrationToken: proof.body.data.token });
+    assert.equal(mismatched.status, 400);
+    assert.equal(mismatched.body.error.code, 'OWNERSHIP_PROOF_INVALID');
+    assert.equal(await prisma.user.count({ where: { email: { in: [email, differentEmail] } } }), 0, 'proof for one email must not activate either submitted account on mismatch');
+    assert.equal((await request(app).post('/api/auth/register').send({ ...credentials, registrationToken: proof.body.data.token })).status, 400, 'mismatched grant is burned');
+    const renewed = await request(app).post('/api/auth/ownership/request').send({ purpose: 'REGISTER', email }); assert.equal(renewed.status, 200);
+    proof = await request(app).post('/api/auth/ownership/verify').send({ challengeId: renewed.body.data.challengeId, otp }); assert.equal(proof.status, 200);
+    const created = await request(app).post('/api/auth/register').send({ ...credentials, registrationToken: proof.body.data.token }); assert.equal(created.status, 201);
+    assert.ok(!('passwordHash' in created.body.data.user));
+    const replay = await request(app).post('/api/auth/register').send({ ...credentials, registrationToken: proof.body.data.token }); assert.equal(replay.status, 400);
+    const signed = await request(app).post('/api/auth/login').send({ email, password: credentials.password }); assert.equal(signed.status, 200);
+    lookups = 0;
+    const started = performance.now();
+    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${signed.body.data.accessToken}`);
+    assert.equal(me.status, 200); assert.equal(lookups, 1); assert.equal(me.body.data.user.id, created.body.data.user.id);
+    console.info(JSON.stringify({ check: 'isolated_me', authSnapshotReads: lookups, durationMs: Math.round((performance.now() - started) * 100) / 100 }));
+    lookups = 0;
+    const staleRole = tokens.sign({ userId: created.body.data.user.id, role: 'ADMIN', authVersion: 0 });
+    const forbiddenAdmin = await request(app).post('/api/admin/movies').set('Authorization', `Bearer ${staleRole}`).send({});
+    assert.equal(forbiddenAdmin.status, 403); assert.equal(lookups, 1);
+    await prisma.user.update({ where: { id: created.body.data.user.id }, data: { authVersion: { increment: 1 } } });
+    assert.equal((await request(app).get('/api/auth/me').set('Authorization', `Bearer ${signed.body.data.accessToken}`)).status, 401);
+  } finally { await redis.quit(); await prisma.$disconnect(); }
+});

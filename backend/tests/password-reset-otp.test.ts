@@ -4,7 +4,7 @@ import { PasswordResetService } from '../src/modules/auth/password-reset.service
 
 it('emails an OTP, verifies it before resetting, rejects the old password and revokes sessions', async () => {
   let passwordHash = await bcrypt.hash('old-password', 4);
-  const user = () => ({ id: 'user-id', email: 'user@example.com', passwordHash });
+  const user = () => ({ id: 'user-id', email: 'user@example.com', passwordHash, emailVerifiedAt: new Date('2026-01-01'), authVersion: 0, authDisabledAt: null });
   let delivered = '';
   const revoke = vi.fn(async () => {});
   const values = new Map<string, unknown>();

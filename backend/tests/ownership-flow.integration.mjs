@@ -1,0 +1,70 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { randomUUID } from 'node:crypto';
+import bcrypt from 'bcrypt';
+import { createClient } from 'redis';
+import { createPrisma } from '../src/lib/prisma.ts';
+import { OwnershipRepository } from '../src/modules/auth/ownership.repository.ts';
+import { OwnershipService } from '../src/modules/auth/ownership.service.ts';
+import { OwnershipProofStore } from '../src/modules/auth/ownership-proof.store.ts';
+import { TokenService } from '../src/modules/auth/token.service.ts';
+import { GoogleAuthService } from '../src/modules/auth/google/google.service.ts';
+import { GoogleUserRepository } from '../src/modules/auth/google/google.repository.ts';
+const url = process.env.OWNERSHIP_REPOSITORY_TEST_DATABASE_URL, redisUrl = process.env.OWNERSHIP_PROOF_TEST_REDIS_URL;
+test('mailbox claimant never inherits attacker history; proven password owner preserves history; sessions revoke', { skip: !url || !redisUrl }, async () => {
+  assert.equal(new URL(url).host, '127.0.0.1:55448'); assert.equal(new URL(url).pathname, '/cinehook_ownership_migration_test');
+  assert.equal(redisUrl, 'redis://127.0.0.1:55449/15');
+  const prisma = createPrisma(url), redis = createClient({ url: redisUrl }); await redis.connect();
+  const secret = 'ownership-isolated-integration-secret-123456789012345';
+  const repo = new OwnershipRepository(prisma), proof = new OwnershipProofStore(redis, secret);
+  const tokens = new TokenService({ secret, expiresInSeconds: 600, currentAuth: id => repo.authSnapshot(id) });
+  let otp;
+  const service = new OwnershipService(repo, proof, tokens, { secret, mailer: { sendOtp: async (_email, value) => { otp = value; } } });
+  async function grant(purpose, email) { const challenge = await service.request(purpose, email, randomUUID()); return (await service.verify(challenge.challengeId, otp)).token; }
+  try {
+    const password = 'attacker-password-123', email = `${randomUUID()}@example.test`;
+    const old = await prisma.user.create({ data: { name: 'Attacker private', email, role: 'ADMIN', passwordHash: await bcrypt.hash(password, 4), phone: 'private' } });
+    const privateBooking = await prisma.$transaction(async tx => {
+      const city = await tx.city.create({ data: { name: randomUUID(), state: 'Test' } });
+      const theatre = await tx.theatre.create({ data: { name: 'Private fixture', address: 'Road', cityId: city.id } });
+      const screen = await tx.screen.create({ data: { name: 'Private screen', capacity: 1, theatreId: theatre.id } });
+      const seat = await tx.seat.create({ data: { screenId: screen.id, rowName: 'A', seatNumber: 1, seatType: 'REGULAR' } });
+      const movie = await tx.movie.create({ data: { title: 'Private movie', description: 'Fixture', durationMinutes: 100, releaseDate: new Date('2026-01-01'), language: 'english', genres: ['drama'] } });
+      const show = await tx.show.create({ data: { movieId: movie.id, screenId: screen.id, startsAt: new Date('2099-01-01T10:00Z'), endsAt: new Date('2099-01-01T11:40Z') } });
+      await tx.showSeatPrice.create({ data: { showId: show.id, seatType: 'REGULAR', pricePaise: 10000 } });
+      const booking = await tx.booking.create({ data: { userId: old.id, showId: show.id, totalPaise: 10000n, expiresAt: new Date(Date.now() + 300000) } });
+      await tx.bookingSeat.create({ data: { bookingId: booking.id, showId: show.id, seatId: seat.id, price: 10000 } });
+      return booking;
+    });
+    const now = Math.floor(Date.now()/1000), nonce = 'n'.repeat(43), clientId = 'isolated.apps.googleusercontent.com';
+    const google = new GoogleAuthService(new GoogleUserRepository(prisma), { verify: async () => ({ sub: 'owner_subject_' + randomUUID(), email, hd: 'example.test', email_verified: true,
+      aud: clientId, iss: 'https://accounts.google.com', iat: now, exp: now + 600, nonce }) }, tokens, clientId);
+    await assert.rejects(google.login('verified-provider-fixture', nonce), { code: 'GOOGLE_EMAIL_CONFLICT' });
+    assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: old.id } })).googleSubject, null);
+    const oldToken = tokens.sign({ userId: old.id, role: old.role, authVersion: 0 });
+    const reset = await grant('RESET_PASSWORD', email);
+    await assert.rejects(service.complete({ purpose: 'RESET_PASSWORD', token: reset, password: 'different-owner-password' }), { code: 'OWNERSHIP_CONTINUITY_REQUIRED' });
+    const clean = await grant('CLEAN_START', email);
+    await assert.rejects(service.complete({ purpose: 'CLEAN_START', token: clean, name: 'Owner', password: 'different-owner-password', cleanStartConfirmed: false }));
+    const result = await service.complete({ purpose: 'CLEAN_START', token: await grant('CLEAN_START', email), name: 'Mailbox Owner', password: 'different-owner-password', cleanStartConfirmed: true });
+    assert.notEqual(result.user.id, old.id); assert.equal(result.user.role, 'USER'); assert.equal(result.user.phone, null);
+    assert.equal(await prisma.booking.count({ where: { userId: result.user.id } }), 0);
+    assert.deepEqual(await prisma.booking.findUniqueOrThrow({ where: { id: privateBooking.id } }), privateBooking);
+    assert.ok(!('passwordHash' in result.user)); assert.ok(!('authVersion' in result.user));
+    await assert.rejects(tokens.verifySession(oldToken), { code: 'UNAUTHORIZED' });
+    await tokens.verifySession(result.accessToken);
+    const legitimateEmail = `${randomUUID()}@example.test`;
+    const legitimate = await prisma.user.create({ data: { name: 'Existing owner', email: legitimateEmail, passwordHash: await bcrypt.hash(password, 4), phone: 'retained' } });
+    const verified = await service.complete({ purpose: 'VERIFY_LEGACY', token: await grant('VERIFY_LEGACY', legitimateEmail), currentPassword: password, password: 'new-owner-password-123' });
+    assert.equal(verified.user.id, legitimate.id); assert.equal(verified.user.phone, 'retained');
+    const first = tokens.sign({ userId: legitimate.id, role: 'USER', authVersion: 1 });
+    const resetToken = await grant('RESET_PASSWORD', legitimateEmail);
+    await service.complete({ purpose: 'RESET_PASSWORD', token: resetToken, password: 'another-new-password-123' });
+    await assert.rejects(tokens.verifySession(first), { code: 'UNAUTHORIZED' });
+    await assert.rejects(service.complete({ purpose: 'RESET_PASSWORD', token: resetToken, password: 'another-password-456' }));
+    const newEmail = `${randomUUID()}@example.test`, registration = await grant('REGISTER', newEmail);
+    const raced = await Promise.allSettled([0, 1].map(() => service.complete({ purpose: 'REGISTER', token: registration, name: 'New owner', password: 'secure-new-password-123' })));
+    assert.equal(raced.filter(r => r.status === 'fulfilled').length, 1);
+    assert.equal(await prisma.user.count({ where: { email: newEmail } }), 1);
+  } finally { await redis.quit(); await prisma.$disconnect(); }
+});

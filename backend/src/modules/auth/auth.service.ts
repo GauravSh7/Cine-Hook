@@ -3,30 +3,28 @@ import { AppError } from '../../errors/app-error.js';
 import type { LoginInput, PublicUser, RegisterInput, StoredUser, UserStore } from './auth.types.js';
 import type { TokenService } from './token.service.js';
 import { toPublicUser } from './auth.types.js';
+import type { OwnershipService } from './ownership.service.js';
 
 // Cost-12 dummy hash makes unknown-email login still perform a bcrypt comparison.
 // It is not a credential, user record or server-side session.
 const dummyHash = '$2b$12$0kUxtm/qgb/ysSn8DzJpsOzqK8lFCIisjMHoXniekw.oti8jAwDjW';
 
 export class AuthService {
-  constructor(private readonly users: UserStore, private readonly tokens: TokenService) {}
+  constructor(private readonly users: UserStore, private readonly tokens: TokenService, private readonly ownership?: OwnershipService) {}
 
   async register(input: RegisterInput) {
-    if (await this.users.findByEmail(input.email)) {
-      throw new AppError(409, 'EMAIL_EXISTS', 'Email is already registered.');
-    }
-    const passwordHash = await bcrypt.hash(input.password, 12);
-    const user = await this.users.create({ name: input.name, email: input.email, passwordHash });
-    return this.authResponse(user, undefined, passwordHash);
+    if (!input.registrationToken || !this.ownership) throw new AppError(403, 'EMAIL_VERIFICATION_REQUIRED', 'Verify your email before creating an account.');
+    return this.ownership.complete({ purpose: 'REGISTER', token: input.registrationToken, name: input.name, email: input.email, password: input.password });
   }
 
   async login(input: LoginInput) {
     const authenticatedAtMs = Date.now();
     const user = await this.users.findByEmail(input.email);
     const matches = await bcrypt.compare(input.password, user?.passwordHash ?? dummyHash);
-    if (!user || !user.passwordHash || !matches) {
+    if (!user || !user.passwordHash || !matches || user.authDisabledAt) {
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect.');
     }
+    if (!user.emailVerifiedAt || !Number.isInteger(user.authVersion)) throw new AppError(403, 'EMAIL_VERIFICATION_REQUIRED', 'Verify your email and existing password to restore access.');
     return this.authResponse(user, authenticatedAtMs, user.passwordHash);
   }
 
@@ -37,6 +35,6 @@ export class AuthService {
   }
 
   private authResponse(user: StoredUser | PublicUser, authenticatedAtMs?: number, passwordHash?: string) {
-    return { user: toPublicUser(user), accessToken: this.tokens.sign({ userId: user.id, role: user.role }, authenticatedAtMs, passwordHash), tokenType: 'Bearer' };
+    return { user: toPublicUser(user), accessToken: this.tokens.sign({ userId: user.id, role: user.role, authVersion: (user as StoredUser).authVersion }, authenticatedAtMs, passwordHash), tokenType: 'Bearer' };
   }
 }

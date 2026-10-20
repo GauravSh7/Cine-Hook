@@ -3,6 +3,7 @@ import type { User } from '../../generated/prisma/client.js';
 export type UserRole = 'USER' | 'ADMIN';
 export type StoredUser = Omit<Pick<User, 'id' | 'name' | 'email' | 'role' | 'passwordHash' | 'createdAt' | 'updatedAt'>, 'passwordHash'> & {
   passwordHash: string | null; googleSubject?: string | null;
+  authVersion?: number; emailVerifiedAt?: Date | null; authDisabledAt?: Date | null;
   dateOfBirth?: Date | null; phone?: string | null; avatarUrl?: string | null; avatarPublicId?: string | null;
 };
 export interface PublicUser {
@@ -21,5 +22,9 @@ export interface UserStore {
   findById(id: string): Promise<PublicUser | null>;
 }
 export interface Identity { userId: string; role: UserRole }
-export interface RegisterInput { name: string; email: string; password: string }
+export interface AuthSnapshot extends PublicUser {
+  authVersion: number; emailVerifiedAt: Date | null; authDisabledAt: Date | null;
+  providerOnly?: boolean;
+}
+export interface RegisterInput { name: string; email: string; password: string; registrationToken?: string }
 export interface LoginInput { email: string; password: string }

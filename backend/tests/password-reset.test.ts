@@ -9,7 +9,7 @@ import type { RecoveryToken } from '../src/modules/auth/password-reset.types.js'
 let hash: string;
 beforeAll(async () => { hash = await bcrypt.hash('old-secret-password', 4); });
 function fixture() {
-  const record = { id: randomUUID(), email: 'reset@example.com', passwordHash: hash as string | null };
+  const record = { id: randomUUID(), email: 'reset@example.com', passwordHash: hash as string | null, emailVerifiedAt: new Date(), authVersion: 0, authDisabledAt: null as Date | null };
   const tokens = new Map<string, { value: RecoveryToken; expiresAt: number }>();
   const sent: string[] = [], revoked: string[] = [];
   const users = { findByEmail: async (email: string) => email === record.email ? { ...record } : null,
@@ -27,6 +27,20 @@ function fixture() {
   const token = () => new URLSearchParams(new URL(sent.at(-1)!).hash.slice(1)).get('token')!;
   return { service, users, store, sessions, options, record, tokens, sent, revoked, token };
 }
+it('legacy reset never activates an unverified account or exposes its history', async () => {
+  const f = fixture(); f.record.emailVerifiedAt = null as never;
+  await f.service.request(f.record.email, '127.0.0.1');
+  expect(f.sent).toHaveLength(0);
+});
+it('labels ownership emails with the requested action rather than disguising clean start as password reset', async () => {
+  let body: any;
+  const mailer = new BrevoRecoveryMailer({ apiKey: 'isolated-brevo-key', from: 'sender@example.test' }, async (_url, options) => {
+    body = JSON.parse(String(options?.body)); return new Response(JSON.stringify({ messageId: 'isolated-message' }), { status: 201 });
+  });
+  await mailer.sendVerificationCode('owner@example.test', '123456', 'CLEAN_START');
+  expect(body.subject).toMatch(/clean account/i); expect(body.textContent).toMatch(/history.*not.*transfer/i);
+  expect(body.textContent).toContain('123456'); expect(body.textContent).toContain('10 minutes');
+});
 
 it('sends a fragment-only expiring link, stores only a digest and resets using bcrypt once', async () => {
   const f = fixture();

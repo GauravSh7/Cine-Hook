@@ -10,6 +10,7 @@ it('creates a null password USER and strips returned secret fields', async () =>
   let saved: any;
   const db = { user: { create: async (args: any) => { saved = args; return { ...args.data, id: 'unit-user', createdAt: new Date(), updatedAt: new Date(), privateField: 'secret' }; } } } as unknown as PrismaClient;
   const publicUser = await new GoogleUserRepository(db).createGoogle(input);
-  expect(saved.data).toEqual({ ...input, passwordHash: null, role: 'USER' }); expect(saved.select).not.toHaveProperty('googleSubject'); expect(saved.select).not.toHaveProperty('passwordHash');
+  expect(saved.data).toEqual({ ...input, passwordHash: null, role: 'USER',emailVerifiedAt:expect.any(Date) });
+  expect(saved.select.passwordHash).toBe(true);expect(saved.select.authVersion).toBe(true);
   expect(publicUser).not.toHaveProperty('googleSubject'); expect(publicUser).not.toHaveProperty('privateField');
 });

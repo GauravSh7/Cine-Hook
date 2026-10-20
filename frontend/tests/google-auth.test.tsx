@@ -31,7 +31,7 @@ it('uses the verified API result and never stores a provider credential', async 
   expect(JSON.stringify(sessionStorage)).not.toContain('provider-test-token')
   expect(f.initialize.mock.calls[0]![0]).toMatchObject({ nonce: 'n'.repeat(43), auto_select: false, ux_mode: 'popup' })
 })
-it('resolves an existing-email conflict inside login with fresh password proof and Google verification',async()=>{
+it('never auto-links a collision from the login form and directs users to safe recovery',async()=>{
   const f=fixture(),success=vi.fn(),base=globalThis.fetch;let link:RequestInit|undefined,proofCalls=0;
   vi.stubGlobal('fetch',async(path:string,options:RequestInit)=>{
     if(path==='/api/auth/google')return failure(409,'GOOGLE_EMAIL_CONFLICT','Existing account');
@@ -43,10 +43,9 @@ it('resolves an existing-email conflict inside login with fresh password proof a
   await userEvent.click(await screen.findByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
   expect(await screen.findByRole('alert')).not.toHaveTextContent('Account Info');expect(success).not.toHaveBeenCalled();
   expect(screen.queryByRole('button',{name:'Retry Google sign-in'})).not.toBeInTheDocument();
+  expect(screen.getByRole('link',{name:'Verify account ownership'})).toHaveAttribute('href','/forgot-password');
   await userEvent.click(screen.getByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
-  await waitFor(()=>expect(success).toHaveBeenCalledWith(result));expect(proofCalls).toBe(1);
-  expect(new Headers(link?.headers).get('Authorization')).toBe('Bearer password-proof-token');
-  expect(JSON.parse(String(link?.body))).toMatchObject({password:'existing-password-123',credential:'provider-test-token'});
+  expect(success).not.toHaveBeenCalled();expect(proofCalls).toBe(0);expect(link).toBeUndefined();
   expect(JSON.stringify(sessionStorage)).not.toContain('existing-password-123');expect(JSON.stringify(sessionStorage)).not.toContain('password-proof-token');
 });
 it('sends password-confirmed linking to the protected endpoint and does not persist the password',async()=>{
@@ -56,6 +55,21 @@ it('sends password-confirmed linking to the protected endpoint and does not pers
   await userEvent.click(await screen.findByRole('button',{name:'Link Google account'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
   await waitFor(()=>expect(success).toHaveBeenCalledWith(result));expect(JSON.parse(String(linked?.body))).toMatchObject({password:'existing-password-123',credential:'provider-test-token',csrfToken:'c'.repeat(43)});
   expect(JSON.stringify(sessionStorage)).not.toContain('existing-password-123');
+});
+it('requires explicit legacy Google security consent and obtains fresh Google evidence before confirmation', async () => {
+  const f=fixture(),success=vi.fn(),fetcher=globalThis.fetch;const submissions:unknown[]=[];
+  vi.stubGlobal('fetch',async(path:string,options:RequestInit)=>{
+    if(path==='/api/auth/google') {const body=JSON.parse(String(options.body));submissions.push(body);return body.confirmOwnership===true?ok(result):failure(403,'GOOGLE_OWNERSHIP_CONFIRMATION_REQUIRED','Confirm security change')}
+    return fetcher(path,options)
+  });
+  const {GoogleSignIn}=await import('../src/components/GoogleSignIn');render(<GoogleSignIn onSuccess={success}/>);
+  await userEvent.click(await screen.findByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  expect(success).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole('checkbox',{name:/Remove the old unverified password/}));
+  await userEvent.click(screen.getByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  await waitFor(()=>expect(success).toHaveBeenCalledWith(result));
+  expect(submissions).toHaveLength(2);expect(submissions[1]).toMatchObject({confirmOwnership:true});
+  expect(f.initialize).toHaveBeenCalledTimes(2);
 });
 it('ignores an abandoned callback after unmount', async () => {
   const f = fixture(), success = vi.fn(); const { GoogleSignIn } = await import('../src/components/GoogleSignIn'); const view = render(<GoogleSignIn onSuccess={success} />)

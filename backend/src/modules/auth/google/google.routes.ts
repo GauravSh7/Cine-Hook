@@ -17,7 +17,7 @@ export function googleRoutes(origin: string, auth?: GoogleAuth, session?:{servic
   router.use(googleRequest(origin, auth?.challenge));
   router.use((_req, _res, next) => { if (!auth) return next(new AppError(503, 'GOOGLE_UNAVAILABLE', 'Google sign-in is not configured. Please use email and password.')); auth.service.requireConfigured(); next(); });
   router.post('/challenge', validateBody(z.object({}).strict()), controller.begin);
-  if (auth) router.post('/', validateBody(z.object({ credential: z.string().min(1).max(16384), csrfToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/) }).strict()), validateGoogleChallenge(auth.challenge), controller.login);
+  if (auth) router.post('/', validateBody(z.object({ credential: z.string().min(1).max(16384), csrfToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/), confirmOwnership: z.boolean().optional() }).strict()), validateGoogleChallenge(auth.challenge), controller.login);
   if(auth && session) router.post('/link',authMiddleware(session.tokens),requireCurrentUser(session.service),validateBody(z.object({
     credential:z.string().min(1).max(16384),csrfToken:z.string().regex(/^[A-Za-z0-9_-]{43}$/),password:z.string().min(1).max(72).refine(v=>Buffer.byteLength(v,'utf8')<=72),
   }).strict()),validateGoogleChallenge(auth.challenge),controller.link);

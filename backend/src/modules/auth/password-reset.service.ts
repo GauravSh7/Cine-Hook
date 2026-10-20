@@ -13,12 +13,12 @@ export class PasswordResetService {
   private hash(value: string) { return createHash('sha256').update(value).digest('hex'); }
   private tag(hash: string) { return credentialTag(this.options.secret, hash); }
   private recoveryTag(user: RecoveryUser) {
-    if (user.passwordHash) return this.tag(user.passwordHash);
     // Bind password initialization to this existing verified Google identity,
     // not a shared null-password marker. Never create or merge users here.
     return createHmac('sha256', this.options.secret)
-      .update(JSON.stringify(['cinehook:google-password-setup:v1', user.id, user.email, user.googleSubject])).digest('hex');
+      .update(JSON.stringify(['cinehook:verified-recovery:v2', user.id, user.email, user.googleSubject, user.passwordHash, user.authVersion, user.emailVerifiedAt])).digest('hex');
   }
+  private eligible(user: RecoveryUser | null): user is RecoveryUser { return Boolean(user && user.emailVerifiedAt && Number.isInteger(user.authVersion) && !user.authDisabledAt && (user.passwordHash || user.googleSubject)); }
   private otpDigest(challenge: string, otp: string) {
     return createHmac('sha256', this.options.secret).update(`recovery-otp:${challenge}:${otp}`).digest('hex');
   }
@@ -32,7 +32,7 @@ export class PasswordResetService {
       throw new AppError(429, 'PASSWORD_RESET_RATE_LIMITED', 'Too many reset requests. Please wait before requesting another code.');
     }
     const user = await this.users.findByEmail(email);
-    if (!user || (!user.passwordHash && !user.googleSubject)) return response;
+    if (!this.eligible(user)) return response;
     const otp = randomInt(0, 1000000).toString().padStart(6, '0');
     await this.store.saveOtp(this.hash(challengeId), { userId: user.id, credentialTag: this.recoveryTag(user), digest: this.otpDigest(challengeId, otp), attempts: 0 }, 600);
     void this.options.mailer.sendOtp(user.email, otp).catch((error: unknown) => {
@@ -51,9 +51,9 @@ export class PasswordResetService {
     if (!this.options.mailer) throw new AppError(503, 'PASSWORD_RESET_UNAVAILABLE', 'Password reset email is not available yet. Please try again later.');
     if (!await this.store.allowRequest(this.hash(email), this.hash(address))) return accepted;
     const user = await this.users.findByEmail(email);
-    if (!user?.passwordHash) return accepted;
+    if (!this.eligible(user) || !user.passwordHash) return accepted;
     const token = randomBytes(32).toString('base64url');
-    await this.store.save(this.hash(token), { userId: user.id, credentialTag: this.tag(user.passwordHash) }, 900);
+    await this.store.save(this.hash(token), { userId: user.id, credentialTag: this.recoveryTag(user) }, 900);
     // URL fragments are not sent to Vercel/Render logs or third-party referrers.
     const url = new URL('/reset-password', this.options.frontendOrigin); url.hash = `token=${token}`;
     // Accepted means queued for delivery, not delivered. Never expose account existence
@@ -69,7 +69,7 @@ export class PasswordResetService {
     const evidence = this.store.peek ? await this.store.peek(this.hash(token)) : await this.store.consume(this.hash(token));
     if (!evidence) throw invalid();
     const user = await this.users.findById(evidence.userId);
-    if (!user || (!user.passwordHash && !user.googleSubject)) throw invalid();
+    if (!this.eligible(user)) throw invalid();
     const actual = this.recoveryTag(user);
     if (!/^[a-f0-9]{64}$/.test(evidence.credentialTag) || !timingSafeEqual(Buffer.from(actual), Buffer.from(evidence.credentialTag))) throw invalid();
     if (user.passwordHash && await bcrypt.compare(password, user.passwordHash)) {
@@ -81,7 +81,7 @@ export class PasswordResetService {
     const passwordHash = await bcrypt.hash(password, 12);
     // Revoke before DB mutation so a Redis failure cannot leave old access live after reset.
     await this.sessions.revoke(user.id, this.tag(passwordHash));
-    if (!await this.users.replacePassword(user.id, user.passwordHash, passwordHash)) throw invalid();
+    if (!await this.users.replacePassword(user.id, user.passwordHash, passwordHash, user.authVersion!)) throw invalid();
     return { message: user.passwordHash ? 'Your password has been changed. Sign in with your new password.'
       : 'Your password has been created. You can sign in with your password or Google.' };
   }

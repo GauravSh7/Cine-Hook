@@ -28,11 +28,11 @@ import { createEvents } from './modules/events/create-events.js';
 import { createEventBooking } from './modules/event-booking/create-event-booking.js';
 import { BookingGateway } from './modules/booking/booking-gateway.js';
 import { BookingTargetRepository } from './modules/booking/booking-target.repository.js';
-import { PasswordResetRepository } from './modules/auth/password-reset.repository.js';
 import { PasswordResetStore } from './modules/auth/password-reset.store.js';
-import { PasswordResetService } from './modules/auth/password-reset.service.js';
 import { BrevoRecoveryMailer } from './modules/auth/password-reset.mailer.js';
-import { credentialTag } from './modules/auth/password-credential.js';
+import { OwnershipRepository } from './modules/auth/ownership.repository.js';
+import { OwnershipProofStore } from './modules/auth/ownership-proof.store.js';
+import { OwnershipService } from './modules/auth/ownership.service.js';
 
 const config = parseConfig(process.env);
 const databaseTarget = new URL(config.databaseUrl);
@@ -42,20 +42,18 @@ const previewContext = config.nodeEnv === 'development' && ['localhost','127.0.0
 const prisma = createPrisma(config.databaseUrl);
 const pricing = new PricingRepository(prisma,razorpayTestCheckout?'razorpay-test':previewContext?'development-preview':'verified',razorpayTestCheckout?process.env:undefined);
 const redis = createRedis(config.redisUrl);
-const recoveryUsers = new PasswordResetRepository(prisma);
-const recoveryStore = new PasswordResetStore(redis, async userId => {
-  const user = await recoveryUsers.findById(userId);
-  return user?.passwordHash ? credentialTag(config.jwtSecret, user.passwordHash) : null;
-});
-const tokens = new TokenService({ secret: config.jwtSecret, expiresInSeconds: config.jwtExpiresInSeconds, sessions: recoveryStore });
-const recovery = new PasswordResetService(recoveryUsers, recoveryStore, recoveryStore,
-  { secret: config.jwtSecret, frontendOrigin: config.frontendOrigin, mailer: config.passwordResetMail ? new BrevoRecoveryMailer(config.passwordResetMail) : undefined });
+const ownershipUsers = new OwnershipRepository(prisma);
+const recoveryStore = new PasswordResetStore(redis);
+const tokens = new TokenService({ secret: config.jwtSecret, expiresInSeconds: config.jwtExpiresInSeconds,
+  sessions: recoveryStore, currentAuth: id => ownershipUsers.authSnapshot(id) });
+const ownership = new OwnershipService(ownershipUsers, new OwnershipProofStore(redis, config.jwtSecret), tokens,
+  { secret: config.jwtSecret, mailer: config.passwordResetMail ? new BrevoRecoveryMailer(config.passwordResetMail) : undefined });
 const eventBooking = createEventBooking(prisma, redis);
 const booking = { bookings: new BookingGateway(new BookingTargetRepository(prisma), createBooking(prisma, redis).bookings, eventBooking) };
 const app = createApp({ frontendOrigin: config.frontendOrigin,
   catalogueStage: { databaseUrl: config.databaseUrl, staging: config.stagingCatalogueMode, testPaymentsAllowed: config.stagingRazorpayTestCheckout },
   healthService: new HealthService(new HealthRepository(prisma, redis)),
-  auth: { service: new AuthService(new UserRepository(prisma), tokens), tokens, recovery,
+  auth: { service: new AuthService(new UserRepository(prisma), tokens, ownership), tokens, ownership,
     google: config.googleClientId ? {
       service: new GoogleAuthService(new GoogleUserRepository(prisma), new GoogleIdTokenVerifier(config.googleClientId), tokens, config.googleClientId),
       challenge: new GoogleChallenge({ secret: config.jwtSecret, clientId: config.googleClientId, origin: config.frontendOrigin, secure: config.nodeEnv === 'production' }),

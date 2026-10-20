@@ -44,7 +44,7 @@ function setup(seed = false) {
   const users = new TestUsers();
   const id = randomUUID();
   if (seed) users.records.set(id, { id, name: credentials.name, email: credentials.email,
-    passwordHash: fixtureHash, role: 'USER', createdAt: new Date(), updatedAt: new Date() });
+    passwordHash: fixtureHash, role: 'USER', emailVerifiedAt: new Date(), authVersion: 0, authDisabledAt: null, createdAt: new Date(), updatedAt: new Date() });
   const tokens = new TokenService(options);
   const app = createApp({ frontendOrigin: 'http://localhost:5173',
     catalog: testCatalog().services,
@@ -55,36 +55,26 @@ function setup(seed = false) {
 }
 
 describe('public registration', () => {
-  it('creates a USER with bcrypt hash and returns no password or hash', async () => {
+  it('refuses account creation before verified registration proof and returns no credentials', async () => {
     const { app, users } = setup();
     const response = await request(app).post('/api/auth/register').send(credentials);
-    expect(response.status).toBe(201);
-    expect(response.body.data.user).toMatchObject({ email: credentials.email, name: credentials.name, role: 'USER' });
-    expect(response.body.data.user.password).toBeUndefined();
-    expect(response.body.data.user.passwordHash).toBeUndefined();
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('EMAIL_VERIFICATION_REQUIRED');
+    expect(response.body).not.toHaveProperty('data');
     expect(response.headers['cache-control']).toContain('no-store');
-    const stored = [...users.records.values()][0]!;
-    expect(stored).not.toHaveProperty('password');
-    expect(stored.passwordHash).not.toBe(credentials.password);
-    expect(bcrypt.getRounds(stored.passwordHash)).toBe(12);
-    expect(await bcrypt.compare(credentials.password, stored.passwordHash)).toBe(true);
-    const claims = jwt.verify(response.body.data.accessToken, secret) as jwt.JwtPayload;
-    expect(Object.keys(claims).sort()).toEqual(['aud', 'exp', 'iat', 'iss', 'role', 'userId']);
-    expect(claims.userId).toBe(stored.id);
-    expect(claims.role).toBe('USER');
-    expect(claims.exp! - claims.iat!).toBe(3600);
+    expect(users.records.size).toBe(0);
   });
-  it('normalizes email and rejects case-insensitive duplicates', async () => {
+  it('does not disclose an existing normalized email before ownership proof', async () => {
     const { app } = setup(true);
     const response = await request(app).post('/api/auth/register').send({ ...credentials, email: ' GAURAV@EXAMPLE.COM ' });
-    expect(response.status).toBe(409);
-    expect(response.body.error.code).toBe('EMAIL_EXISTS');
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('EMAIL_VERIFICATION_REQUIRED');
   });
-  it('handles a database duplicate race as 409', async () => {
+  it('never reaches database creation without a configured proof service', async () => {
     const { app, users } = setup();
     users.failCreate = true;
-    const response = await request(app).post('/api/auth/register').send(credentials);
-    expect(response.status).toBe(409);
+    const response = await request(app).post('/api/auth/register').send({...credentials,registrationToken:'x'.repeat(43)});
+    expect(response.status).toBe(403);expect(users.records.size).toBe(0);
   });
   it.each([
     { name: '', email: credentials.email, password: credentials.password },

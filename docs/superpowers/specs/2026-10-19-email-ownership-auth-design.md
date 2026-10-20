@@ -1,12 +1,12 @@
 # Email ownership and secure Google account linking
 
-Status: approved policy captured as a written security design; awaiting written-spec review before implementation planning.
+Status: approved policy implemented and verified locally; hosted migration/push/deployment remain unauthorized. See `docs/auth-ownership-rollout.md` for evidence and limitations.
 
 Scope: the authentication vulnerability audited at `0f44e80` only. Local code, additive migration and isolated tests are authorized. Hosted migration, hosted account changes, push and deployment are not authorized.
 
 ## Security objective and root cause
 
-Password registration currently issues a normal session without proving email ownership. `GoogleAuthService.login()` can link a verified authoritative Google email to that record without replacing the old password or revoking old sessions. Email uniqueness is not evidence that the person who registered the password owns the mailbox.
+At audit baseline `0f44e80`, password registration issued a normal session without proving email ownership. `GoogleAuthService.login()` could link a verified authoritative Google email to that record without replacing the old password or revoking old sessions. Email uniqueness is not evidence that the person who registered the password owns the mailbox.
 
 The fix must prevent retained access through an attacker-chosen password, previously issued JWT, stale login, recovery grant or concurrent linking request. Account IDs, bookings, profiles, wishlists, roles and financial history must not be merged, deleted or reassigned. No private account data may be returned before the appropriate authentication or explicit ownership-recovery flow completes.
 
@@ -39,25 +39,35 @@ If the email already belongs to a record, registration must not overwrite it. Th
 
 ### Existing unverified password accounts and hostile pre-registration
 
-Password knowledge alone no longer establishes ownership for an unverified account. The rightful mailbox owner can use the existing Brevo recovery flow without knowing the previously registered password. A valid, purpose-bound OTP grant permits choosing a fresh password, setting verification time and incrementing the authentication version in one PostgreSQL transaction. It preserves the record ID and legitimate existing data, but does not expose that data before recovery completes.
+Mailbox ownership alone does not establish ownership of an unverified account's historical data. Neither Google email equality nor email OTP alone may unlock its profile, bookings, wishlist or role.
+
+Two separate paths are required:
+
+1. **Proven existing-account recovery:** current password plus fresh mailbox OTP, or fresh authentication by the already-bound verified Google subject, establishes continuity. Preserve that account ID and history. Replace any unverified password, increment auth version and establish verification atomically. For previously verified accounts, normal mailbox OTP password recovery preserves history.
+2. **Email-only clean start:** after fresh mailbox OTP and explicit clean-start confirmation, quarantine the ambiguous unverified account and create a new USER account using the genuine email. Do not copy any profile, booking, wishlist, role, provider binding or financial data. Disable the old password and all sessions atomically. Historical rows remain attached to the old ID for separately reviewed recovery, not automatic disclosure or reassignment.
+
+Quarantine uses an opaque non-deliverable internal email under the reserved `.invalid` domain to free the existing unique email constraint. Preserve the original address and quarantine provenance in a restricted authentication record, never in public responses. An additive `authDisabledAt` flag makes the old record inaccessible through every login, reset and JWT path; `authVersion` is incremented. Do not send mail to internal addresses. A known bound Google subject is independent account continuity evidence: mailbox-only takeover of that account is prohibited and must use the bound provider or review path instead. Clean-start is available only for ambiguous legacy password records with no bound subject.
+
+There is no safe automatic way to distinguish an attacker-created unverified record from a legitimate unverified user who forgot their password and has no bound provider identity. Such a user can regain use of their email through clean start, but restoration of historical data requires separate ownership review. This limitation must be explained before confirmation; do not promise automatic history recovery or implement a new support/admin recovery feature in this change.
 
 The new password must differ from the old password. A stale hash/version comparison cannot overwrite a recovery winner. A repeated attacker registration or login cannot reset verification, resurrect the original password or block the owner permanently. Temporary resend limits expire normally; an attacker cannot acquire permanent ownership merely by registering first.
 
 ### Google sign-in, collisions and legacy users
 
 - **Known subject, Google-only account:** continue subject-based sign-in after the existing signature/audience/issuer/nonce checks. Establish the new ownership metadata transactionally if needed; never require password creation.
+- **Legacy provider-only third-party email:** the verified bound subject establishes account continuity, not mailbox ownership. An internal derived `providerOnly` snapshot permits version-checked sessions without backfilling `emailVerifiedAt`; mailbox-only reset stays blocked until mailbox ownership is established. A legacy hybrid can clear the unverified password through fresh subject confirmation without falsely verifying an unrelated/stale email.
 - **Known legacy subject with an unverified password:** return only a restricted security-confirmation challenge, not a normal JWT or profile. After explicit confirmation backed by fresh Google proof, disable the unverified password, mark ownership established and increment auth version atomically. Keep the subject, account ID and data; the user may optionally establish a new password later through OTP recovery.
-- **New subject with an existing email:** do not automatically link. Provide a generic collision response and the email OTP recovery path. Once the user has recovered/authenticated that account, linking requires explicit consent, fresh proof for the current account and fresh Google evidence for that exact email. Never require the attacker-created password to recover ownership.
+- **New subject with an existing email:** do not automatically link. Offer the proof-based continuity or explicit clean-start paths above, without exposing existing private data. After establishing a safe authenticated account, linking requires explicit consent, fresh current-account proof and fresh Google evidence for that exact email. A clean-start account never inherits the old subject.
 - **New subject with no existing email:** create a USER account from the verified identity. Gmail or a matching verified Workspace hosted domain can establish email ownership; for other domains, fresh mailbox OTP establishes email ownership before ordinary activation. A subject/email uniqueness race yields either the same legitimate winner or a safe conflict, never a merge.
 - **Already verified linked accounts:** preserve their approved credentials and account data. A different Google subject cannot replace the existing binding through email equality.
 
-Stored roles are never accepted from client input or Google profile fields. Recovery preserves the database role; it does not create administrator privileges. Existing records are not marked verified merely because they have a Google-subject column or password hash.
+Stored roles are never accepted from client input or Google profile fields. Proven same-account recovery preserves the database role; clean start always creates USER. Existing records are not marked verified merely because they have a Google-subject column or password hash.
 
 ## Proof handling and recovery
 
 Reuse Brevo HTTPS delivery, the existing secure OTP approach and Redis shared state; do not introduce SMTP or an additional provider. Use six-digit cryptographically random codes, a ten-minute challenge TTL, at most five attempts, bounded email/network resend limits and single-use grants lasting at most five minutes or the remaining challenge TTL.
 
-Store HMAC digests, not plaintext OTPs. Bind challenge/grant to purpose, canonical email, account/Google subject when applicable, and the expected auth version or credential snapshot. Resends invalidate the previous challenge for that purpose. Replayed, expired, wrong-purpose or stale-version grants cannot activate, reset or link anything.
+Store HMAC digests, not plaintext OTPs. Bind challenge/grant to purpose, canonical email, account/Google subject when applicable, and the expected auth version or credential snapshot. OTP purposes implemented are REGISTER, VERIFY_LEGACY, CLEAN_START and RESET_PASSWORD. Linking instead uses its existing authenticated fresh-password proof and signed Google nonce/CSRF challenge; there is no interchangeable OTP link grant. Resends invalidate the previous challenge for that purpose. Replayed, expired, wrong-purpose or stale-version grants cannot activate, reset or link anything.
 
 Redis consumption and PostgreSQL are not one distributed transaction. Consume a validated proof atomically once, then commit the credential mutation with a row/version compare-and-swap. A database failure must not restore or extend the proof; the owner can request a new OTP. Concurrent proof completions may produce one winner, never two credential transitions. Provider delivery failure must not activate an account or leak account existence. No codes, grants, tokens, passwords or private account information go to logs.
 
@@ -67,6 +77,9 @@ Add to `User`:
 
 - `emailVerifiedAt`, mapped to nullable `email_verified_at`, timezone-aware timestamp.
 - `authVersion`, mapped to `auth_version`, nonnegative integer default 0.
+- `authDisabledAt`, mapped to nullable `auth_disabled_at`, timezone-aware timestamp.
+
+Add a restricted `AccountQuarantine` record with old-user ID (unique FK), replacement-user ID (unique FK), original canonical email, reason and timestamp. No public projection includes this record or internal email. Quarantine/create/provenance insertion is one short PostgreSQL transaction with expected version/hash/subject/verification checks; conflicts roll back completely. The transaction must recheck absence of a bound subject so concurrent linking cannot be bypassed.
 
 New JWTs require an integer auth-version claim in addition to the existing identity/issuer/audience/expiry validation. A missing version is rejected; this intentionally signs out existing sessions once the new backend is released. Reset, unverified-account recovery and security-sensitive linking increment the version with the corresponding mutation. Issuance uses that transaction's resulting version, not a later opportunistic read that could bless a stale password.
 
@@ -76,7 +89,7 @@ An already-authorized, in-flight request is not retroactively undone by revocati
 
 ## Migration and existing-account impact
 
-The migration only adds the columns and their validity constraint. Do not delete/reset tables or backfill verification from email/password presence. Existing records retain all identifiers, relationships and business data. Verification and credential changes occur only after valid owner proof in the new flows.
+The migration only adds the security columns, validity constraint and quarantine provenance table. It does not quarantine, rewrite or verify existing accounts. Do not delete/reset tables or backfill verification from email/password presence. Existing records retain all identifiers, relationships and business data. Later runtime credential/quarantine changes occur only after valid proof and explicit consent; historical business ownership never changes.
 
 Before a future release, explicitly communicate one-time reauthentication and the recovery step for legacy unverified password/hybrid accounts. Complete the migration before starting the new application version; do not leave old vulnerable workers issuing sessions during cutover. New code must not silently downgrade to legacy authentication if columns/state are missing.
 
@@ -84,7 +97,7 @@ Before a future release, explicitly communicate one-time reauthentication and th
 
 Focused service, HTTP, frontend and isolated PostgreSQL/Redis tests must cover:
 
-1. Exact hostile pre-registration -> rightful Google-owner collision -> explicit owner recovery -> old password/JWT rejected -> account ID/history retained.
+1. Exact hostile pre-registration -> rightful Google-owner collision -> mailbox OTP and explicit clean start -> new USER ID with no inherited data; old account quarantined, password/JWT rejected and historical foreign keys unchanged. Separately prove password-plus-OTP and known-subject recovery preserve legitimate history.
 2. Existing Google-only login with no password creation; legacy hybrid confirmation removes old password and sessions.
 3. OTP expiry, five incorrect attempts, resend limits, replay, wrong-purpose grant, wrong email/subject, guessed/modified proof and delivery outage.
 4. Concurrent duplicate registration, reset versus login, Google linking versus login, conflicting subjects and repeated completion. Only the intended winner commits; stale-version tokens remain unusable.

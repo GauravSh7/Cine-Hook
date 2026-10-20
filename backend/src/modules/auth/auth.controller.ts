@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express';
 import type { AuthService } from './auth.service.js';
 import type { Identity } from './auth.types.js';
+import { toPublicUser } from './auth.types.js';
 
 export class AuthController {
   constructor(private readonly service: AuthService) {}
@@ -15,6 +16,6 @@ export class AuthController {
 
   me: RequestHandler = async (_req, res) => {
     const identity = res.locals.identity as Identity;
-    res.json({ success: true, data: { user: await this.service.getMe(identity.userId) } });
+    res.json({ success: true, data: { user: res.locals.authUser ? toPublicUser(res.locals.authUser) : await this.service.getMe(identity.userId) } });
   };
 }

@@ -11,6 +11,7 @@ import type { PasswordRecoveryStore, RecoveryOtp, RecoveryToken } from '../src/m
 function fixture() {
   const record = { id: randomUUID(), email: 'google@example.com', googleSubject: 'verified-google-subject' as string | null,
     passwordHash: null as string | null, name: 'Google User', role: 'USER' as const, createdAt: new Date(), updatedAt: new Date(),
+    emailVerifiedAt: new Date(), authVersion: 0, authDisabledAt: null,
     bookings: ['existing-booking'], wishlist: ['existing-movie'] };
   const grants = new Map<string, RecoveryToken>(), challenges = new Map<string, RecoveryOtp>();
   let delivered = '';
@@ -48,7 +49,7 @@ it('creates a password only after email OTP verification, preserving the Google 
   const proof = await f.proof();
   await f.service.reset(proof.token, 'first-password');
   expect(await bcrypt.compare('first-password', f.record.passwordHash!)).toBe(true);
-  expect(f.replacePassword).toHaveBeenCalledWith(original.id, null, expect.any(String));
+  expect(f.replacePassword).toHaveBeenCalledWith(original.id, null, expect.any(String), 0);
   expect(f.record).toMatchObject({ id: original.id, email: original.email, googleSubject: original.googleSubject,
     bookings: original.bookings, wishlist: original.wishlist });
   expect(f.revoke).toHaveBeenCalledWith(original.id, expect.any(String));
@@ -107,7 +108,7 @@ it('retains password login and an existing verified Google identity on the same 
 it('uses a conditional null-password update and never writes the Google subject or account relationships', async () => {
   const updateMany = vi.fn(async () => ({ count: 1 }));
   const repository = new PasswordResetRepository({ user: { updateMany } } as never);
-  expect(await repository.replacePassword('existing-user', null, 'new-bcrypt-hash')).toBe(true);
-  expect(updateMany).toHaveBeenCalledWith({ where: { id: 'existing-user', passwordHash: null, googleSubject: { not: null } },
-    data: { passwordHash: 'new-bcrypt-hash' } });
+  expect(await repository.replacePassword('existing-user', null, 'new-bcrypt-hash', 0)).toBe(true);
+  expect(updateMany).toHaveBeenCalledWith({ where: { id: 'existing-user', passwordHash: null, googleSubject: { not: null },authVersion:0,authDisabledAt:null,emailVerifiedAt:{not:null} },
+    data: { passwordHash: 'new-bcrypt-hash',authVersion:{increment:1} } });
 });

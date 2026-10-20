@@ -10,6 +10,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import type { HealthService } from './modules/health/health.service.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
+import type { OwnershipService } from './modules/auth/ownership.service.js';
 import type { AuthService } from './modules/auth/auth.service.js';
 import type { TokenService } from './modules/auth/token.service.js';
 import type { CatalogServices } from './modules/catalog/catalog.types.js';
@@ -40,7 +41,7 @@ import type { PasswordResetService } from './modules/auth/password-reset.service
 export function createApp(dependencies: {
   frontendOrigin: string;
   healthService: HealthService;
-  auth: { service: AuthService; tokens: TokenService; google?: GoogleAuth; recovery?: PasswordResetService };
+  auth: { service: AuthService; tokens: TokenService; google?: GoogleAuth; recovery?: PasswordResetService; ownership?: OwnershipService };
   catalog: CatalogServices;
   shows?: ShowServices;
   booking?: BookingServices;
@@ -70,7 +71,7 @@ export function createApp(dependencies: {
   if (dependencies.demoCatalog) app.use('/api/demo-catalog', demoCatalogRoutes(dependencies.demoCatalog));
   if (dependencies.events) app.use('/api', eventRoutes(dependencies.events));
   if (dependencies.booking || dependencies.eventBooking) app.use('/api', eventBookingRoutes(dependencies.eventBooking, dependencies.auth));
-  app.use('/api/auth', authRoutes(dependencies.auth.service, dependencies.auth.tokens, dependencies.frontendOrigin, dependencies.auth.google, dependencies.auth.recovery));
+  app.use('/api/auth', authRoutes(dependencies.auth.service, dependencies.auth.tokens, dependencies.frontendOrigin, dependencies.auth.google, dependencies.auth.recovery, dependencies.auth.ownership));
   if (dependencies.account) app.use('/api/account', accountRoutes(dependencies.account, dependencies.auth));
   if (dependencies.wishlist) app.use('/api/wishlist', wishlistRoutes(dependencies.wishlist, dependencies.auth));
   if (dependencies.uiRead) app.use('/api', uiReadRoutes(dependencies.uiRead, dependencies.auth));

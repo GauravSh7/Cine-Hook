@@ -46,11 +46,12 @@ describe('Google authentication security and identity', () => {
     const store = {
       findBySubject: async (subject: string) => records.find(u => u.googleSubject === subject) ?? null,
       findByEmail: async (email: string) => records.find(u => u.email === email) ?? null,
-      createGoogle: async (input: any) => { const u = { ...input, id: randomUUID(), passwordHash: null, role: 'USER', createdAt: new Date(), updatedAt: new Date() }; records.push(u); return u; },
+      createGoogle: async (input: any) => { const u = { ...input, id: randomUUID(), passwordHash: null, role: 'USER', emailVerifiedAt: new Date(), authVersion: 0, authDisabledAt: null, createdAt: new Date(), updatedAt: new Date() }; records.push(u); return u; },
+      confirmSubject: async (input: any) => { const u = records.find(r => r.id === input.userId && r.authVersion === input.authVersion); if (!u) throw new Error('conflict'); u.emailVerifiedAt = new Date(); u.passwordHash = null; u.authVersion++; return u; },
       linkGoogle: async (input:any)=>{const u=records.find(r=>r.id===input.userId);u.googleSubject=input.googleSubject;return u;},
       linkVerifiedGoogle: async (input:any)=>{const u=records.find(r=>r.id===input.userId && r.email===input.email && r.googleSubject===null);if(!u)throw new Error('link conflict');u.googleSubject=input.googleSubject;return u;},
     };
-    const claims: any = { sub: '123456789012345678901', email: 'USER@example.com', email_verified: true, name: 'Google User', aud: clientId, iss: 'https://accounts.google.com', exp: Math.floor(Date.now() / 1000) + 3600, iat: Math.floor(Date.now() / 1000), nonce: '' };
+    const claims: any = { sub: '123456789012345678901', email: 'USER@example.com', hd: 'example.com', email_verified: true, name: 'Google User', aud: clientId, iss: 'https://accounts.google.com', exp: Math.floor(Date.now() / 1000) + 3600, iat: Math.floor(Date.now() / 1000), nonce: '' };
     let verificationCalls = 0;
     let rejection = false;
     const verifier = { verify: async () => { verificationCalls++; if (rejection) throw new Error('private-credential'); return claims; } };
@@ -79,17 +80,32 @@ describe('Google authentication security and identity', () => {
     expect(r.headers['set-cookie'][0]).toContain('Max-Age=0');
   });
   it('returns identity by subject with current DB role and preserves stored metadata', async () => {
-    const f = await setup(); f.records.push({ id: randomUUID(), googleSubject: f.claims.sub, email: 'old@example.com', name: 'Stored Name', role: 'ADMIN', passwordHash: 'private', createdAt: new Date(), updatedAt: new Date() });
+    const f = await setup(); f.records.push({ id: randomUUID(), googleSubject: f.claims.sub, email: 'old@example.com', name: 'Stored Name', role: 'ADMIN', passwordHash: 'private', emailVerifiedAt: new Date(), authVersion: 2, authDisabledAt: null, createdAt: new Date(), updatedAt: new Date() });
     const r = await f.submit(await f.begin()); expect(r.status).toBe(200); expect(r.body.data.user).toMatchObject({ email: 'old@example.com', name: 'Stored Name', role: 'ADMIN' }); expect(f.records).toHaveLength(1);
+  });
+  it('requires fresh subject confirmation before disabling a legacy hybrid password', async () => {
+    const f = await setup(); const row = { id: randomUUID(), email: 'user@example.com', name: 'Private', role: 'USER', googleSubject: f.claims.sub,
+      passwordHash: 'attacker-hash', emailVerifiedAt: null, authVersion: 0, authDisabledAt: null, createdAt: new Date(), updatedAt: new Date() }; f.records.push(row);
+    const first = await f.submit(await f.begin()); expect(first.status).toBe(403); expect(first.body).not.toHaveProperty('data'); expect(row.passwordHash).toBe('attacker-hash');
+    const a = await f.begin();
+    const confirmed = await request(f.app).post('/api/auth/google').set('Origin', origin).set('Cookie', a.cookie).send({ ...a.body, confirmOwnership: true });
+    expect(confirmed.status).toBe(200); expect(row.passwordHash).toBeNull(); expect(row.authVersion).toBe(1);
+  });
+  it('keeps a legacy Google-only account working by its subject without creating a password or claiming mailbox ownership', async () => {
+    const f = await setup(); delete f.claims.hd;
+    const row = { id: randomUUID(), email: 'user@example.com', name: 'Google owner', role: 'USER', googleSubject: f.claims.sub,
+      passwordHash: null, emailVerifiedAt: null, authVersion: 0, authDisabledAt: null, createdAt: new Date(), updatedAt: new Date() }; f.records.push(row);
+    const response = await f.submit(await f.begin()); expect(response.status).toBe(200);
+    expect(response.body.data.user.id).toBe(row.id); expect(row.passwordHash).toBeNull(); expect(row.emailVerifiedAt).toBeNull();
   });
   it.each(['USER', 'ADMIN'])('does not link an existing %s email or issue its token', async role => {
     const f = await setup(); f.records.push({ email: 'user@example.com', role }); const r = await f.submit(await f.begin());
     expect(r.status).toBe(409); expect(r.body.error.code).toBe('GOOGLE_EMAIL_CONFLICT'); expect(r.body).not.toHaveProperty('data'); expect(f.records).toHaveLength(1); expect(f.records[0]).not.toHaveProperty('googleSubject');
   });
-  it.each(['user@gmail.com', 'user@company.example'])('links authoritative Google email %s without password and preserves account', async email => {
+  it.each(['user@gmail.com', 'user@company.example'])('never links a pre-registered authoritative email %s or exposes its history', async email => {
     const f=await setup();f.claims.email=email;if(email.endsWith('company.example'))f.claims.hd='company.example';
     const row={id:randomUUID(),email,name:'Original',role:'ADMIN',passwordHash:'unchanged',googleSubject:null,createdAt:new Date(),updatedAt:new Date()};f.records.push(row);
-    const r=await f.submit(await f.begin());expect(r.status).toBe(200);expect(r.body.data.user).toMatchObject({id:row.id,name:'Original',role:'ADMIN'});expect(row.passwordHash).toBe('unchanged');expect(f.records).toHaveLength(1);
+    const r=await f.submit(await f.begin());expect(r.status).toBe(409);expect(r.body).not.toHaveProperty('data');expect(row.googleSubject).toBeNull();expect(row.passwordHash).toBe('unchanged');expect(f.records).toHaveLength(1);
   });
   it.each([
     { hd: 'other.example', status: 409 }, { hd: 'company.example.evil', status: 409 }, { hd: '', status: 401 }, { hd: undefined, status: 409 },
@@ -99,7 +115,7 @@ describe('Google authentication security and identity', () => {
   });
   it('links only with authenticated ownership, fresh password and verified Google evidence',async()=>{
     const f=await setup(),id=randomUUID(),password='existing-password-123';
-    f.records.push({id,email:'user@example.com',name:'Original profile',role:'USER',passwordHash:await bcrypt.hash(password,4),createdAt:new Date(),updatedAt:new Date()});
+    f.records.push({id,email:'user@example.com',name:'Original profile',role:'USER',passwordHash:await bcrypt.hash(password,4),emailVerifiedAt:new Date(),authVersion:0,authDisabledAt:null,createdAt:new Date(),updatedAt:new Date()});
     const link=async(pw:string,token?:string)=>{const a=await f.begin();const req=request(f.app).post('/api/auth/google/link').set('Origin',origin).set('Cookie',a.cookie);if(token)req.set('Authorization',`Bearer ${token}`);return req.send({...a.body,password:pw})};
     expect((await link(password)).status).toBe(401);
     const token=tokens.sign({userId:id,role:'USER'});
@@ -119,7 +135,7 @@ describe('Google authentication security and identity', () => {
   });
   it('converges a subject uniqueness race to the database identity', async () => {
     const f = await setup(); const { AppError } = await import('../src/errors/app-error.js');
-    f.store.createGoogle = async input => { const u = { ...input, id: randomUUID(), role: 'USER', passwordHash: null, createdAt: new Date(), updatedAt: new Date() }; f.records.push(u); throw new AppError(409, 'GOOGLE_IDENTITY_CONFLICT', 'Conflict'); };
+    f.store.createGoogle = async input => { const u = { ...input, id: randomUUID(), role: 'USER', passwordHash: null, emailVerifiedAt:new Date(),authVersion:0,authDisabledAt:null,createdAt: new Date(), updatedAt: new Date() }; f.records.push(u); throw new AppError(409, 'GOOGLE_IDENTITY_CONFLICT', 'Conflict'); };
     const r = await f.submit(await f.begin()); expect(r.status).toBe(200); expect(r.body.data.user.id).toBe(f.records[0].id);
   });
   it.each([undefined, 'null', 'https://evil.example', `${origin}/`, 'http://localhost:5174'])('rejects non-exact Origin %s before provider verification', async supplied => {
@@ -159,7 +175,7 @@ describe('Google authentication security and identity', () => {
   });
   it('converges when the same subject arrives between subject and email lookups', async () => {
     const f = await setup();
-    f.store.findByEmail = async email => { const row = { email, googleSubject: f.claims.sub, id: randomUUID(), role: 'USER', name: 'Concurrent', createdAt: new Date(), updatedAt: new Date() }; f.records.push(row); return row; };
+    f.store.findByEmail = async email => { const row = { email, googleSubject: f.claims.sub, id: randomUUID(), role: 'USER', name: 'Concurrent', passwordHash:null,emailVerifiedAt:new Date(),authVersion:0,authDisabledAt:null,createdAt: new Date(), updatedAt: new Date() }; f.records.push(row); return row; };
     const r = await f.submit(await f.begin()); expect(r.status).toBe(200); expect(r.body.data.user.id).toBe(f.records[0].id); expect(f.records).toHaveLength(1);
   });
   it('clears the challenge on a trusted-origin malformed JSON submission', async () => {

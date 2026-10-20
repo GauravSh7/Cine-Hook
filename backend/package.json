@@ -46,6 +46,8 @@
     "test:staging:parity": "node --import tsx tests/staging-parity.integration.mjs",
     "test:seed:integration": "tsx --test tests/dev-seed.integration.ts",
     "test:google:integration": "node --test tests/google-auth.integration.mjs",
+    "test:ownership:migration": "node --test tests/auth-ownership-migration.integration.mjs",
+    "test:ownership:integration": "node --import tsx --test --test-concurrency=1 tests/ownership-concurrency.integration.mjs tests/ownership-financial-history.integration.mjs tests/ownership-flow.integration.mjs tests/ownership-http.integration.mjs tests/ownership-login-races.integration.mjs tests/ownership-proof.integration.mjs tests/ownership-repository.integration.mjs",
     "test:refinement:integration": "tsx --test tests/refinement.integration.ts",
     "test:events:seed:integration": "tsx --test --test-concurrency=1 tests/event-seed.integration.ts",
     "test:events:inventory:integration": "node --test --test-concurrency=1 tests/event-inventory.integration.mjs",

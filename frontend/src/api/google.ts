@@ -15,10 +15,11 @@ export const googleApi = {
       || !Number.isInteger(value.expiresAt) || value.expiresAt * 1000 <= Date.now() || value.expiresAt * 1000 > Date.now() + 360000) throw new Error('Google sign-in challenge could not be loaded.')
     return value
   },
-  login: async (credential: string, csrfToken: string, signal?: AbortSignal) => {
-    try { return await api<AuthResult>('/auth/google', { method: 'POST', body: { credential, csrfToken }, signal, token: null }) }
+  login: async (credential: string, csrfToken: string, signal?: AbortSignal, confirmOwnership = false) => {
+    try { return await api<AuthResult>('/auth/google', { method: 'POST', body: { credential, csrfToken, ...(confirmOwnership ? {confirmOwnership:true} : {}) }, signal, token: null }) }
     catch (error) {
-      if (error instanceof ApiError && error.code === 'GOOGLE_EMAIL_CONFLICT') throw new Error('Enter your existing email and password above, then choose Google again to connect this account.', { cause: error })
+      if (error instanceof ApiError && error.code === 'GOOGLE_EMAIL_CONFLICT') throw new Error('Verify account ownership first. Matching email addresses do not automatically link accounts.', { cause: error })
+      if (error instanceof ApiError && ['GOOGLE_OWNERSHIP_CONFIRMATION_REQUIRED','GOOGLE_EMAIL_PROOF_REQUIRED'].includes(error.code)) throw new Error(error.message, {cause:error})
       if (error instanceof ApiError && error.code === 'GOOGLE_UNAVAILABLE') throw new Error('Google sign-in is not configured. Please use email and password.', { cause: error })
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) throw new Error('Google sign-in expired or could not be verified. Please try again.', { cause: error })
       throw error
