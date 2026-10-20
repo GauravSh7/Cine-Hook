@@ -14,7 +14,12 @@ interface ProofRedis {
   eval(script: string, options: { keys: string[]; arguments: string[] }): Promise<unknown>;
 }
 export class OwnershipProofStore {
-  constructor(private readonly redis: ProofRedis, private readonly secret: string) {}
+  constructor(private readonly redis: ProofRedis, private readonly secret: string,
+    private readonly limits?: { dailyEmailBudget: number }) {
+    if (limits && (!Number.isInteger(limits.dailyEmailBudget) || limits.dailyEmailBudget < 1 || limits.dailyEmailBudget > 240)) {
+      throw new Error('Invalid ownership email budget');
+    }
+  }
   private ready() { if (!this.redis.isReady) throw new AppError(503, 'AUTH_TEMPORARILY_UNAVAILABLE', 'Authentication is temporarily unavailable.'); }
   private digest(value: string) { return createHmac('sha256', this.secret).update(`ownership:v1:${value}`).digest('hex'); }
   async request(input: OwnershipEvidence & { address: string; send: (otp: string) => Promise<void> }) {
@@ -25,14 +30,24 @@ export class OwnershipProofStore {
     const key = `auth:ownership:otp:${this.digest(challengeId)}`;
     const permitted = await this.redis.eval(`
 local email=redis.call('INCR',KEYS[1]); if email==1 then redis.call('EXPIRE',KEYS[1],3600) end
-local network=redis.call('INCR',KEYS[2]); if network==1 then redis.call('EXPIRE',KEYS[2],3600) end
-if email>5 or network>100 then return 0 end
+if tonumber(ARGV[2])==0 then
+  local network=redis.call('INCR',KEYS[2]); if network==1 then redis.call('EXPIRE',KEYS[2],3600) end
+  if network>100 then return 0 end
+end
+if email>5 then return 0 end
+if tonumber(ARGV[2])>0 then
+  local now=tonumber(redis.call('TIME')[1]); local day=math.floor(now/86400)
+  local budgetKey=KEYS[5]..':'..day
+  local used=tonumber(redis.call('GET',budgetKey) or '0')
+  if used>=tonumber(ARGV[2]) then return 0 end
+  redis.call('INCR',budgetKey); redis.call('EXPIRE',budgetKey,86400-now%86400)
+end
 local previous=redis.call('GET',KEYS[3]); if previous then redis.call('DEL',previous) end
 redis.call('SET',KEYS[4],ARGV[1],'EX',600)
 redis.call('SET',KEYS[3],KEYS[4],'EX',600)
 return 1`, { keys: [`auth:ownership:limit:email:${this.digest(email)}`, `auth:ownership:limit:network:${this.digest(input.address)}`,
-      `auth:ownership:latest:${this.digest(email)}:${evidence.purpose}`, key],
-    arguments: [JSON.stringify({ evidence, digest: this.digest(`${challengeId}:${otp}`), attempts: 0 })] });
+      `auth:ownership:latest:${this.digest(email)}:${evidence.purpose}`, key, `auth:ownership:limit:mail-budget:${this.digest('budget-v1')}`],
+    arguments: [JSON.stringify({ evidence, digest: this.digest(`${challengeId}:${otp}`), attempts: 0 }), String(this.limits?.dailyEmailBudget ?? 0)] });
     if (Number(permitted) !== 1) throw new AppError(429, 'OWNERSHIP_RATE_LIMITED', 'Too many code requests. Please try again later.');
     // Never return delivery details that reveal account existence. Failed delivery
     // invalidates the specific challenge, without deleting a newer resend.

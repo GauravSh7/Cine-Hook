@@ -46,7 +46,7 @@ const ownershipUsers = new OwnershipRepository(prisma);
 const recoveryStore = new PasswordResetStore(redis);
 const tokens = new TokenService({ secret: config.jwtSecret, expiresInSeconds: config.jwtExpiresInSeconds,
   sessions: recoveryStore, currentAuth: id => ownershipUsers.authSnapshot(id) });
-const ownership = new OwnershipService(ownershipUsers, new OwnershipProofStore(redis, config.jwtSecret), tokens,
+const ownership = new OwnershipService(ownershipUsers, new OwnershipProofStore(redis, config.jwtSecret, config.ownershipProofLimits), tokens,
   { secret: config.jwtSecret, mailer: config.passwordResetMail ? new BrevoRecoveryMailer(config.passwordResetMail) : undefined });
 const eventBooking = createEventBooking(prisma, redis);
 const booking = { bookings: new BookingGateway(new BookingTargetRepository(prisma), createBooking(prisma, redis).bookings, eventBooking) };

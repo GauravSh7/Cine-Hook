@@ -10,6 +10,8 @@ const createSchema = (approvedStagingFingerprint: string) => z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   AUTH_TRUSTED_PROXY_CIDRS: z.string().default('').transform(value => value.trim() ? value.split(',').map(item => item.trim()) : [])
     .refine(value => { try { createAuthClientAddress(value); return true; } catch { return false; } }),
+  AUTH_OTP_RATE_LIMIT_MODE: z.enum(['network', 'mailbox-budget']).default('network'),
+  AUTH_OTP_DAILY_EMAIL_BUDGET: z.coerce.number().int().min(1).max(240).default(240),
   DEV_RAZORPAY_TEST_CHECKOUT: z.enum(['true','false']).default('false'),
   STAGING_RAZORPAY_TEST_CHECKOUT: z.enum(['true','false']).default('false'),
   STAGING_CATALOGUE_MODE: z.enum(['true','false']).default('false'),
@@ -38,7 +40,8 @@ const createSchema = (approvedStagingFingerprint: string) => z.object({
     const url = new URL(value);
     return url.origin === value && !url.username && !url.password;
   }),
-}).refine(value=>{
+}).refine(value => value.AUTH_OTP_RATE_LIMIT_MODE !== 'mailbox-budget' || value.AUTH_TRUSTED_PROXY_CIDRS.length === 0,
+{ path: ['AUTH_TRUSTED_PROXY_CIDRS'] }).refine(value=>{
   if(value.DEV_RAZORPAY_TEST_CHECKOUT!=='true')return true;
   if(value.STAGING_RAZORPAY_TEST_CHECKOUT==='true')return false;
   const db=new URL(value.DATABASE_URL);
@@ -71,6 +74,8 @@ export function parseConfig(env: Record<string, string | undefined>, approvedSta
   return {
     nodeEnv: result.data.NODE_ENV,
     authTrustedProxyCidrs: result.data.AUTH_TRUSTED_PROXY_CIDRS,
+    ownershipProofLimits: result.data.AUTH_OTP_RATE_LIMIT_MODE === 'mailbox-budget'
+      ? { dailyEmailBudget: result.data.AUTH_OTP_DAILY_EMAIL_BUDGET } : undefined,
     devRazorpayTestCheckout: result.data.DEV_RAZORPAY_TEST_CHECKOUT==='true',
     stagingRazorpayTestCheckout: result.data.STAGING_RAZORPAY_TEST_CHECKOUT==='true',
     stagingCatalogueMode: result.data.STAGING_CATALOGUE_MODE==='true',

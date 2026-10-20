@@ -13,6 +13,11 @@ describe('authentication client address trust boundary', () => {
     expect(parseConfig({ ...base, AUTH_TRUSTED_PROXY_CIDRS: '10.20.0.0/24, 198.51.100.10/32' }).authTrustedProxyCidrs)
       .toEqual(['10.20.0.0/24', '198.51.100.10/32']);
     expect(() => parseConfig({ ...base, AUTH_TRUSTED_PROXY_CIDRS: '0.0.0.0/0' })).toThrow('AUTH_TRUSTED_PROXY_CIDRS');
+    expect(parseConfig({ ...base, AUTH_OTP_RATE_LIMIT_MODE: 'mailbox-budget' }).ownershipProofLimits).toEqual({ dailyEmailBudget: 240 });
+    expect(() => parseConfig({ ...base, AUTH_OTP_RATE_LIMIT_MODE: 'mailbox-budget', AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32' })).toThrow('AUTH_TRUSTED_PROXY_CIDRS');
+    for (const budget of ['0', '241', 'unlimited']) {
+      expect(() => parseConfig({ ...base, AUTH_OTP_DAILY_EMAIL_BUDGET: budget })).toThrow('AUTH_OTP_DAILY_EMAIL_BUDGET');
+    }
   });
   it('ignores all forwarding headers without an explicitly trusted socket peer', () => {
     const address = createAuthClientAddress([]);
