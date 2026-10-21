@@ -86,7 +86,8 @@ test('durable checkout pricing with PostgreSQL, Redis, capture and refund eviden
       await assert.rejects(()=>pool.query("UPDATE booking_pricing_quotes SET final_paise=final_paise+1 WHERE booking_id=$1",[winner.id]));
       await assert.rejects(()=>pool.query('UPDATE payments SET amount_paise=40000 WHERE id=$1',[paid.id]));
       await assert.rejects(()=>pool.query('UPDATE first_booking_offers SET reserved_booking_id=$2 WHERE user_id=$1',[owner,second.id===winner.id?first.id:second.id]));
-      await rejectCode(()=>payments.reserve(owner,second.id===winner.id?first.id:second.id),'FIRST_OFFER_UNAVAILABLE');
+      // An unrelated full-price order must not redeem or move FIRST50.
+      assert.equal((await payments.reserve(owner,second.id===winner.id?first.id:second.id)).amountPaise,40826n);
     });
     let capture;
     await t.test('capture/webhook replay is idempotent and consumes eligibility',async()=>{
@@ -114,9 +115,25 @@ test('durable checkout pricing with PostgreSQL, Redis, capture and refund eviden
       assert.equal((await prisma.booking.findUnique({where:{id:a.id}})).status,'CANCELLED');
       assert.equal((await pricing.readOrChange(u,b.id,'FIRST50')).discountPaise,20000);
     });
+    await t.test('cancel before any payment reservation allows an unrelated full-price order and retry',async()=>{
+      const u=await user(),a=await booking(u),b=await booking(u);
+      await pricing.readOrChange(u,a.id,'FIRST50');
+      await refunds.cancelCheckout(u,a.id,scope=>bookings.cancel(u,a.id,scope));
+      const results=await Promise.all([payments.reserve(u,b.id),payments.reserve(u,b.id)]);
+      assert.equal(results[0].id,results[1].id);assert.equal(results[0].amountPaise,40826n);
+      assert.equal(await prisma.payment.count({where:{bookingId:a.id}}),0);
+      assert.equal((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).consumedAt,null);
+    });
     await t.test('unknown provider response keeps reservation; late capture on cancelled booking consumes offer',async()=>{
       const u=await user(),a=await booking(u),b=await booking(u);await pricing.readOrChange(u,a.id,'FIRST50');const p=await payments.reserve(u,a.id);
       await bookings.releaseHold(u,a.id);await rejectCode(()=>pricing.readOrChange(u,b.id,'FIRST50'),'FIRST_OFFER_UNAVAILABLE');
+      // Reproduces the original bug: local payment reserved, no provider order
+      // attached, then cancelled. FIRST50 stays held; full-price checkout works.
+      const competing=await Promise.all([payments.reserve(u,b.id),payments.reserve(u,b.id)]);
+      const fullPrice=competing[0];assert.equal(competing[1].id,fullPrice.id);
+      assert.equal(fullPrice.amountPaise,40826n);
+      assert.equal((await payments.reserve(u,b.id)).id,fullPrice.id,'retry reuses payment');
+      assert.equal((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).reservedBookingId,a.id);
       const order={id:`order_${randomUUID()}`,receipt:p.receipt,amountPaise:Number(p.amountPaise),currency:'INR',status:'created'};await payments.attachOrder(p.id,order);
       await payments.recordEvidence(p.id,{id:`pay_${randomUUID()}`,orderId:order.id,amountPaise:Number(p.amountPaise),currency:'INR',status:'captured',captured:true});
       // Prove safety at the interruption boundary, before any later finalize,
@@ -301,6 +318,8 @@ test('durable checkout pricing with PostgreSQL, Redis, capture and refund eviden
       assert.equal((await bookings.getById(u,b.id)).status,'CANCELLED');assert.equal((await bookings.availability(show)).seats.find(s=>s.id===b.seats[0].seatId).availability,'AVAILABLE');
       // A failed attempt cannot prove that its entire order will never capture.
       assert.equal((await prisma.firstBookingOffer.findUnique({where:{userId:u}})).reservedBookingId,b.id);
+      const unrelated=await booking(u);
+      assert.equal((await payments.reserve(u,unrelated.id)).amountPaise,40826n,'failed attempt does not block full-price checkout');
       await payments.recordEvidence(payment.id,{id,orderId:order.order.id,amountPaise:order.order.amountPaise,currency:'INR',status:'captured',captured:true});
       assert.equal((await prisma.booking.findUnique({where:{id:b.id}})).status,'CANCELLED');assert.equal((await payments.findByBooking(b.id)).status,'REFUND_PENDING');
       assert.equal((await prisma.refund.findFirst({where:{paymentId:payment.id}})).amountPaise,BigInt(order.order.amountPaise));

@@ -1,9 +1,32 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import App from '../src/App'
 import { city, mockApi, ok, page } from './fixtures'
 
 const oldGeolocation = Object.getOwnPropertyDescriptor(navigator, 'geolocation')
+
+it('does not request location again when a city was manually selected', async () => {
+  sessionStorage.setItem('cinehook.city', city.id)
+  sessionStorage.setItem('cinehook.city-record', JSON.stringify(city))
+  window.history.replaceState({}, '', '/')
+  const getCurrentPosition = vi.fn()
+  Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+  mockApi(() => undefined)
+  render(<App />)
+  expect(await screen.findByRole('heading', { name: 'Find your next story.' })).toBeVisible()
+  expect(getCurrentPosition).not.toHaveBeenCalled()
+})
+
+it('finishes discovery when location is denied or unavailable', async () => {
+  sessionStorage.clear()
+  window.history.replaceState({}, '', '/')
+  Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
+    getCurrentPosition: (_success: PositionCallback, error: PositionErrorCallback) => error({ code: 1 } as GeolocationPositionError),
+  } })
+  mockApi(() => undefined)
+  render(<App />)
+  expect(await screen.findByRole('heading', { name: 'Find your next story.' })).toBeVisible()
+})
 afterEach(() => {
   cleanup()
   if (oldGeolocation) Object.defineProperty(navigator, 'geolocation', oldGeolocation)

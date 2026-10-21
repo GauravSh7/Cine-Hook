@@ -49,18 +49,18 @@ function uniqueTitles(items: Awaited<ReturnType<typeof catalogApi.movies>>['item
 }
 
 export function HomePage() {
-  const city = useCity(), session = useSession()
+  const { loading: cityLoading, error: cityError, selectedCity, chooseCity, cityId, retry: retryCity } = useCity()
+  const session = useSession()
   const welcomeLoading = session.status === 'anonymous'
   const [locationCheckDone, setLocationCheckDone] = useState(() => {
     try { return sessionStorage.getItem('cinehook.city') !== null || sessionStorage.getItem('cinehook.location-auto-attempted') === '1' } catch { return true }
   })
+  const locationResolved = locationCheckDone || Boolean(cityError || selectedCity) || !navigator.geolocation
   useEffect(() => {
-    if (city.loading || locationCheckDone) return
-    if (city.error || city.selectedCity) { setLocationCheckDone(true); return }
+    if (cityLoading || locationResolved) return
     let active = true
     const controller = new AbortController()
     const finish = () => { if (active) setLocationCheckDone(true) }
-    if (!navigator.geolocation) { finish(); return () => { active = false; controller.abort() } }
     void currentPosition().then(async position => {
       if (!active) return
       const supported = await nearestCityWithCinemaInventory(position.coords.latitude, position.coords.longitude, controller.signal)
@@ -68,14 +68,14 @@ export function HomePage() {
         try { sessionStorage.setItem('cinehook.location-auto-attempted', '1') } catch { /* Per-tab convenience only. */ }
         let cityWasChosen = false
         try { cityWasChosen = sessionStorage.getItem('cinehook.city') !== null } catch { /* Continue with the in-memory preference. */ }
-        if (!cityWasChosen && supported) city.chooseCity(supported)
+        if (!cityWasChosen && supported) chooseCity(supported)
       }
     }).catch(() => undefined).finally(finish)
     return () => { active = false; controller.abort() }
-  }, [city.loading, city.error, city.selectedCity, city.chooseCity, locationCheckDone])
-  if (city.loading || !locationCheckDone) return welcomeLoading ? <DiscoveryLoading status="Detecting your location…" /> : <main className="page-shell"><Loading label="Loading movies…" /></main>
-  if (city.error) return <main className="page-shell"><ErrorState error={city.error} retry={city.retry} /></main>
-  return <MovieCatalog key={city.cityId} welcomeLoading={welcomeLoading} />
+  }, [cityLoading, locationResolved, chooseCity])
+  if (cityLoading || !locationResolved) return welcomeLoading ? <DiscoveryLoading status="Detecting your location…" /> : <main className="page-shell"><Loading label="Loading movies…" /></main>
+  if (cityError) return <main className="page-shell"><ErrorState error={cityError} retry={retryCity} /></main>
+  return <MovieCatalog key={cityId} welcomeLoading={welcomeLoading} />
 }
 function MovieCatalog({ welcomeLoading }: { welcomeLoading: boolean }) {
   const [params, setParams] = useSearchParams(), { cityId } = useCity()
@@ -97,11 +97,11 @@ function MovieCatalog({ welcomeLoading }: { welcomeLoading: boolean }) {
     return allMovies.map(movie => ({ ...movie, bookingAvailability: cityMatches.get(movie.id) ?? { cityId, hasShows: false } }))
   }, [search, language, genre, cityId])
   const resource = useAsync(`movies:${cityId}:${search}:${language}:${genre}`, load)
-  const [offersReady, setOffersReady] = useState(false)
+  const [offersReadyFor, setOffersReadyFor] = useState<typeof resource.data>()
+  const offersReady = Boolean(resource.data && !resource.error && offersReadyFor === resource.data)
   useEffect(() => {
-    if (!resource.data || resource.error) { setOffersReady(false); return }
-    setOffersReady(false)
-    const timer = window.setTimeout(() => setOffersReady(true), 350)
+    if (!resource.data || resource.error) return
+    const timer = window.setTimeout(() => setOffersReadyFor(resource.data), 350)
     return () => window.clearTimeout(timer)
   }, [resource.data, resource.error])
   if (resource.loading) return welcomeLoading ? <DiscoveryLoading status="Setting up cinemas, movies and shows…" /> : <main className="page-shell"><Loading label="Loading movies…" /></main>

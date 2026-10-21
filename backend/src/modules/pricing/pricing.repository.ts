@@ -94,15 +94,17 @@ export class PricingRepository {
   async freeze(tx: Prisma.TransactionClient, b: Booking) {
     await this.userLock(tx,b.userId);
     if (b.pricingVersion===0) {
-      const reserved = await tx.firstBookingOffer.findUnique({where:{userId:b.userId}});
-      if (reserved?.reservedBookingId && reserved.reservedBookingId!==b.id && !reserved.consumedAt) throw firstError();
+      // Legacy/full-price payments do not redeem FIRST50. An uncertain order
+      // keeps its offer reservation, but must not block unrelated purchases.
       return b.totalPaise;
     }
     const old = await tx.bookingPricingQuote.findUnique({where:{bookingId:b.id}});
     const quote = await this.price(tx,b,old?.couponCode??null);
     await this.assertPaymentAllowed(tx,quote.breakdown);
-    const reservation = await tx.firstBookingOffer.findUnique({where:{userId:b.userId}});
-    if (reservation?.reservedBookingId && reservation.reservedBookingId!==b.id && !reservation.consumedAt) throw firstError();
+    if (quote.couponCode==='FIRST50') {
+      const reservation = await tx.firstBookingOffer.findUnique({where:{userId:b.userId}});
+      if (reservation?.reservedBookingId!==b.id || reservation.consumedAt) throw firstError();
+    }
     if (!quote.frozenAt) await tx.bookingPricingQuote.update({where:{bookingId:b.id},data:{frozenAt:await this.clock(tx)}});
     return quote.finalPaise;
   }

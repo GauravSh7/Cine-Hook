@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { catalogApi } from '../api/catalog'
 import type { City } from '../api/types'
 import { CityContext } from './city-context'
@@ -11,7 +11,7 @@ export function CityProvider({ children }: { children: ReactNode }) {
   })
   const load = useCallback((signal: AbortSignal) => catalogApi.cities({ limit: 100 }, signal), [])
   const resource = useAsync('cities', load)
-  const cities = resource.data?.items ?? []
+  const cities = useMemo(() => resource.data?.items ?? [], [resource.data])
   const selectedCity = savedRecord ?? cities.find(city => city.id === saved) ?? null
   const cityId = selectedCity?.id ?? ''
   const chooseCity = useCallback((next: City | null) => {
