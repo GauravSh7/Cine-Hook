@@ -87,7 +87,6 @@ jobs:
           POSTGRES_DB: cinehook_ownership_migration_test
         ports:
           - 55448:5432
-          - 55438:5432
         options: >-
           --health-cmd "pg_isready -U cinehook -d cinehook_ownership_migration_test"
           --health-interval 5s --health-timeout 3s --health-retries 10
@@ -104,7 +103,7 @@ jobs:
       OWNERSHIP_PROOF_TEST_REDIS_URL: redis://127.0.0.1:55449/15
       AUTH_RATE_TEST_REDIS_URL: redis://127.0.0.1:55449/15
       SEAT_LOCK_TEST_REDIS_URL: redis://127.0.0.1:55449/15
-      PRICING_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@127.0.0.1:55438/cinehook_event_seed_pricing_ci_test
+      PRICING_TEST_DATABASE_URL: postgresql://cinehook_verify:cinehook_ci_only@127.0.0.1:55438/cinehook_event_seed_pricing_ci_test
     defaults:
       run:
         working-directory: backend
@@ -124,10 +123,25 @@ jobs:
           npm run test:ownership:integration
           node --import tsx --test tests/ownership-mailbox-budget.integration.mjs tests/auth-rate-limit.integration.mjs
       - name: Prepare separate disposable pricing database
-        run: node --input-type=module -e "import pg from 'pg'; const c=new pg.Client({connectionString:process.env.DATABASE_URL}); await c.connect(); await c.query('CREATE DATABASE cinehook_event_seed_pricing_ci_test'); await c.end();"
+        # Existing pricing/event-fixture safeguards verify the actual server's
+        # loopback address, port and role, not just the connection URL. A normal
+        # Docker port mapping changes neither inet_server_port nor server IP.
+        run: |
+          docker run --detach --name cinehook-pricing --network host \
+            -e POSTGRES_USER=cinehook_verify -e POSTGRES_PASSWORD=cinehook_ci_only \
+            -e POSTGRES_DB=cinehook_event_seed_pricing_ci_test \
+            postgres:17-alpine -p 55438 -h 127.0.0.1
+          for attempt in $(seq 1 30); do
+            if docker exec cinehook-pricing pg_isready -h 127.0.0.1 -p 55438 -U cinehook_verify -d cinehook_event_seed_pricing_ci_test; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs cinehook-pricing
+          exit 1
       - name: Fresh pricing migrations and FIRST50/payment/refund regressions
         env:
-          DATABASE_URL: postgresql://cinehook:cinehook_ci_only@127.0.0.1:55438/cinehook_event_seed_pricing_ci_test
+          DATABASE_URL: postgresql://cinehook_verify:cinehook_ci_only@127.0.0.1:55438/cinehook_event_seed_pricing_ci_test
         run: |
           npm run db:deploy
           node --import tsx --test tests/pricing.integration.mjs
