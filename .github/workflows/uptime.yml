@@ -1,0 +1,22 @@
+name: CineHook uptime
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: cinehook-uptime
+  cancel-in-progress: false
+jobs:
+  readiness:
+    # Explicit owner opt-in. Never enables releases or touches financial records.
+    if: vars.UPTIME_MONITORING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node backend/scripts/uptime-probe.mjs

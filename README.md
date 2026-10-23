@@ -469,6 +469,9 @@ Never place private keys in browser-side `VITE_*` values.
 
 ## Implementation sequence
 
+Operational checks, auth rate limits, monitoring setup and the next manual release:
+[Pointer 2 operations](docs/pointer2-operations.md).
+
 Foundation -> Auth -> Movies/Theatres/Screens -> Shows/Seats -> Booking and
 Redis locking -> Payments/webhooks -> Cancellation/refunds -> UI integration.
 BookingService, SeatLockService and PaymentService remain separate modules.

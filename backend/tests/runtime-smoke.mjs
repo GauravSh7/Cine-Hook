@@ -54,6 +54,15 @@ test('compiled server exits on bad configuration without echoing credentials', (
     encoding: 'utf8', timeout: 5000,
   });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Invalid configuration: DATABASE_URL/);
+  const logged=JSON.parse(result.stderr.trim());
+  assert.equal(logged.event,'startup_failed');
+  assert.deepEqual(logged.fields,['DATABASE_URL']);
   assert.ok(!result.stderr.includes('secret-credential'));
+});
+
+test('compiled shutdown deadline remains active even when cleanup has no live handles',()=>{
+  const result=spawnSync(process.execPath,['--input-type=module','-e',
+    "import {createShutdown} from './dist/lib/lifecycle.js'; createShutdown({close:cb=>cb()},()=>new Promise(()=>{}),{exit:code=>process.exit(code),timeoutMs:30})('SIGTERM');"],
+    {encoding:'utf8',timeout:3000});
+  assert.equal(result.status,1);assert.match(result.stderr,/shutdown_timeout/);
 });

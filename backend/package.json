@@ -14,6 +14,8 @@
     "start:maintenance": "node dist/maintenance-bridge.js",
     "test": "vitest run",
     "test:smoke": "node --test tests/runtime-smoke.mjs",
+    "test:rate-limit:integration": "node --import tsx --test tests/auth-rate-limit.integration.mjs",
+    "monitor:check": "node scripts/uptime-probe.mjs",
     "test:integration": "node --test tests/auth.integration.mjs tests/google-auth.integration.mjs tests/catalog.integration.mjs tests/shows.integration.mjs tests/booking-database.integration.mjs tests/seat-lock.integration.mjs tests/booking.integration.mjs tests/payments-database.integration.mjs tests/payments.integration.mjs tests/refunds-database.integration.mjs tests/refunds.integration.mjs tests/profile-wishlist.integration.mjs",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",

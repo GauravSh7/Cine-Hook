@@ -29,14 +29,14 @@ test('PostgreSQL: Google subject race and email collision (controlled verifier b
     const challenge = await request(app).post('/api/auth/google/challenge').set('Origin', origin).send({}); assert.equal(challenge.status, 200);
     const now = Math.floor(Date.now() / 1000);
     return request(app).post('/api/auth/google').set('Origin', origin).set('Cookie', challenge.headers['set-cookie'][0].split(';')[0]).send({ csrfToken: challenge.body.data.csrfToken,
-      credential: JSON.stringify({ sub: subject, email: address, email_verified: true, name: 'Integration Google', nonce: challenge.body.data.nonce, aud: clientId, iss: 'https://accounts.google.com', iat: now, exp: now + 3600 }) });
+      credential: JSON.stringify({ sub: subject, email: address, email_verified: true, hd:'example.com',name: 'Integration Google', nonce: challenge.body.data.nonce, aud: clientId, iss: 'https://accounts.google.com', iat: now, exp: now + 3600 }) });
   }
   try {
     const race = await Promise.all([login(sub, email), login(sub, email)]); assert.deepEqual(race.map(r => r.status), [200, 200]); assert.equal(race[0].body.data.user.id, race[1].body.data.user.id);
     const stored = await prisma.user.findUniqueOrThrow({ where: { googleSubject: sub } }); assert.equal(stored.passwordHash, null); assert.equal(stored.role, 'USER');
     const passwordLogin = await request(app).post('/api/auth/login').send({ email, password: 'integration-password' }); assert.equal(passwordLogin.status, 401);
     const password='integration-link-password', passwordHash=await bcrypt.hash(password,4);
-    const existing=await prisma.user.create({ data: { name: 'Existing Admin', email: collisionEmail, role: 'ADMIN', passwordHash } });
+    const existing=await prisma.user.create({ data: { name: 'Existing Admin', email: collisionEmail, role: 'ADMIN', passwordHash,emailVerifiedAt:new Date() } });
     const collision = await login(`${sub}-other`, collisionEmail); assert.equal(collision.status, 409); assert.equal(collision.body.error.code, 'GOOGLE_EMAIL_CONFLICT'); assert.ok(!collision.body.data);
     async function link(subject,proof=password) {
       const challenge=await request(app).post('/api/auth/google/challenge').set('Origin',origin).send({});

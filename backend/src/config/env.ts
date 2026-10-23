@@ -9,6 +9,7 @@ const optionalCredential = (minimum: number) => z.preprocess(value =>
 const createSchema = (approvedStagingFingerprint: string) => z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   MAINTENANCE_MODE: z.enum(['true', 'false']).default('false'),
+  AUTH_API_GLOBAL_LIMIT: z.coerce.number().int().min(100).max(10000).default(2000),
   AUTH_TRUSTED_PROXY_CIDRS: z.string().default('').transform(value => value.trim() ? value.split(',').map(item => item.trim()) : [])
     .refine(value => { try { createAuthClientAddress(value); return true; } catch { return false; } }),
   AUTH_OTP_RATE_LIMIT_MODE: z.enum(['network', 'mailbox-budget']).default('network'),
@@ -65,16 +66,21 @@ const createSchema = (approvedStagingFingerprint: string) => z.object({
   return count === 0 || count === 3;
 }, { path: ['CLOUDINARY_CONFIG'] });
 
+export class ConfigurationError extends Error {
+  constructor(readonly fields: string[]) { super(`Invalid configuration: ${fields.join(', ')}`); }
+}
+
 export function parseConfig(env: Record<string, string | undefined>, approvedStagingFingerprint = APPROVED_STAGING_TARGET_FINGERPRINT) {
   const result = createSchema(approvedStagingFingerprint).safeParse(env);
   if (!result.success) {
     // Field names are useful diagnostics; actual values may contain secrets.
     const fields = [...new Set(result.error.issues.map(issue => issue.path.join('.')))];
-    throw new Error(`Invalid configuration: ${fields.join(', ')}`);
+    throw new ConfigurationError(fields);
   }
   return {
     nodeEnv: result.data.NODE_ENV,
     maintenanceMode: result.data.MAINTENANCE_MODE === 'true',
+    authApiGlobalLimit: result.data.AUTH_API_GLOBAL_LIMIT,
     authTrustedProxyCidrs: result.data.AUTH_TRUSTED_PROXY_CIDRS,
     ownershipProofLimits: result.data.AUTH_OTP_RATE_LIMIT_MODE === 'mailbox-budget'
       ? { dailyEmailBudget: result.data.AUTH_OTP_DAILY_EMAIL_BUDGET } : undefined,

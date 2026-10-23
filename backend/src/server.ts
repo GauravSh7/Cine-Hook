@@ -1,9 +1,12 @@
 import 'dotenv/config';
+import { createShutdown } from './lib/lifecycle.js';
+import { dependencyErrorDetails } from './lib/dependency-diagnostics.js';
+import { AuthRateLimiter } from './modules/auth/auth-rate-limit.js';
 import { logDependencyFailure } from './lib/dependency-diagnostics.js';
 import { PricingRepository } from './modules/pricing/pricing.repository.js';
 import { PricingService } from './modules/pricing/pricing.service.js';
 import { createApp } from './app.js';
-import { parseConfig } from './config/env.js';
+import { parseConfig, ConfigurationError } from './config/env.js';
 import { createPrisma } from './lib/prisma.js';
 import { createRedis } from './lib/redis.js';
 import { HealthRepository } from './modules/health/health.repository.js';
@@ -34,6 +37,7 @@ import { OwnershipRepository } from './modules/auth/ownership.repository.js';
 import { OwnershipProofStore } from './modules/auth/ownership-proof.store.js';
 import { OwnershipService } from './modules/auth/ownership.service.js';
 
+function start() {
 const config = parseConfig(process.env);
 const databaseTarget = new URL(config.databaseUrl);
 const razorpayTestCheckout = config.devRazorpayTestCheckout || config.stagingRazorpayTestCheckout;
@@ -53,6 +57,7 @@ const booking = { bookings: new BookingGateway(new BookingTargetRepository(prism
 const app = createApp({ frontendOrigin: config.frontendOrigin,
   maintenanceMode: config.maintenanceMode,
   authTrustedProxyCidrs: config.authTrustedProxyCidrs,
+  authRateLimiter: new AuthRateLimiter(redis, config.jwtSecret, config.authApiGlobalLimit),
   catalogueStage: { databaseUrl: config.databaseUrl, staging: config.stagingCatalogueMode, testPaymentsAllowed: config.stagingRazorpayTestCheckout },
   healthService: new HealthService(new HealthRepository(prisma, redis)),
   auth: { service: new AuthService(new UserRepository(prisma), tokens, ownership), tokens, ownership,
@@ -79,22 +84,19 @@ const server = app.listen(config.port, () => {
   console.info(JSON.stringify({ event: 'server_started', port: config.port }));
 });
 
-let stopping = false;
-function shutdown(exitCode = 0) {
-  if (stopping) return;
-  stopping = true;
-  const deadline = setTimeout(() => process.exit(1), 8000);
-  deadline.unref();
-  server.close(() => {
-    void Promise.allSettled([
-      prisma.$disconnect(),
-      Promise.resolve().then(() => { if (redis.isOpen) redis.destroy(); }),
-    ]).then(() => { clearTimeout(deadline); process.exit(exitCode); });
-  });
-}
-server.on('error', () => {
-  console.error(JSON.stringify({ event: 'server_failed' }));
-  shutdown(1);
+const shutdown = createShutdown(server,async()=>{
+  const results=await Promise.allSettled([prisma.$disconnect(),Promise.resolve().then(()=>{if(redis.isOpen)redis.destroy();})]);
+  const rejected=results.find(result=>result.status==='rejected');
+  if(rejected?.status==='rejected')throw rejected.reason;
+},{exit:code=>process.exit(code)});
+server.on('error', error => {
+  console.error(JSON.stringify({ event: 'server_failed',...dependencyErrorDetails(error) }));
+  shutdown('server_error',1);
 });
-process.on('SIGINT', () => shutdown());
-process.on('SIGTERM', () => shutdown());
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('uncaughtException',error=>{console.error(JSON.stringify({event:'uncaught_exception',...dependencyErrorDetails(error)}));shutdown('uncaught_exception',1);});
+process.on('unhandledRejection',error=>{console.error(JSON.stringify({event:'unhandled_rejection',...dependencyErrorDetails(error)}));shutdown('unhandled_rejection',1);});
+}
+try{start();}catch(error){console.error(JSON.stringify({event:'startup_failed',...dependencyErrorDetails(error),
+  ...(error instanceof ConfigurationError?{fields:error.fields}:{})}));process.exitCode=1;}

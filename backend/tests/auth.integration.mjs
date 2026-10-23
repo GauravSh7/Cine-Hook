@@ -10,23 +10,33 @@ import { AuthService } from '../dist/modules/auth/auth.service.js';
 import { TokenService } from '../dist/modules/auth/token.service.js';
 import { UserRepository } from '../dist/modules/auth/user.repository.js';
 import { createCatalog } from '../dist/modules/catalog/create-catalog.js';
+import {createClient} from 'redis';
+import {OwnershipRepository} from '../dist/modules/auth/ownership.repository.js';
+import {OwnershipService} from '../dist/modules/auth/ownership.service.js';
+import {OwnershipProofStore} from '../dist/modules/auth/ownership-proof.store.js';
 
 const url = process.env.AUTH_TEST_DATABASE_URL;
-test('PostgreSQL: register/login/me and concurrent duplicate registration', { skip: !url, timeout: 20000 }, async () => {
+test('PostgreSQL: OTP register/login/me and concurrent duplicate registration', { skip: !url || !process.env.SEAT_LOCK_TEST_REDIS_URL, timeout: 30000 }, async () => {
   // Writes require an explicitly supplied disposable test database.
   assert.match(new URL(url).pathname, /_test$/);
   const prisma = createPrisma(url);
   const run = randomUUID();
   const emails = [`auth-${run}@example.com`, `race-${run}@example.com`];
   const password = 'integration-only-password';
-  const tokens = new TokenService({ secret: 'integration-only-key-not-a-real-secret-12345', expiresInSeconds: 3600 });
+  const redis=createClient({url:process.env.SEAT_LOCK_TEST_REDIS_URL});await redis.connect();
+  const secret='integration-only-key-not-a-real-secret-12345',repo=new OwnershipRepository(prisma),codes=new Map();
+  const tokens = new TokenService({ secret, expiresInSeconds: 3600,currentAuth:id=>repo.authSnapshot(id) });
+  const ownership=new OwnershipService(repo,new OwnershipProofStore(redis,secret),tokens,{secret,mailer:{sendVerificationCode:async(email,code)=>{codes.set(email,code);}}});
   const app = createApp({ frontendOrigin: 'http://localhost:5173',
     catalog: createCatalog(prisma),
     healthService: new HealthService({ checkDatabase: async () => { await prisma.$queryRaw`SELECT 1`; }, checkRedis: async () => {} }),
-    auth: { service: new AuthService(new UserRepository(prisma), tokens), tokens },
+    auth: { service: new AuthService(new UserRepository(prisma), tokens,ownership), tokens,ownership },
   });
+  async function proof(email){const a=await request(app).post('/api/auth/ownership/request').send({purpose:'REGISTER',email});assert.equal(a.status,200);
+    const b=await request(app).post('/api/auth/ownership/verify').send({challengeId:a.body.data.challengeId,otp:codes.get(email)});assert.equal(b.status,200);return b.body.data.token;}
   try {
-    const registered = await request(app).post('/api/auth/register').send({ name: 'Integration', email: emails[0], password });
+    assert.equal((await request(app).post('/api/auth/register').send({name:'Unverified',email:emails[0],password})).status,403);
+    const registered = await request(app).post('/api/auth/register').send({ name: 'Integration', email: emails[0], password,registrationToken:await proof(emails[0]) });
     assert.equal(registered.status, 201);
     assert.equal(registered.body.data.user.role, 'USER');
     assert.ok(!('passwordHash' in registered.body.data.user));
@@ -42,8 +52,9 @@ test('PostgreSQL: register/login/me and concurrent duplicate registration', { sk
     assert.ok(!('passwordHash' in me.body.data.user));
     const wrong = await request(app).post('/api/auth/login').send({ email: emails[0], password: 'wrong-password' });
     assert.equal(wrong.status, 401);
-    const race = await Promise.all([0, 1].map(() => request(app).post('/api/auth/register')
-      .send({ name: 'Race', email: emails[1], password })));
+    const grants=[await proof(emails[1]),await proof(emails[1])];
+    const race = await Promise.all(grants.map(registrationToken => request(app).post('/api/auth/register')
+      .send({ name: 'Race', email: emails[1], password,registrationToken })));
     assert.deepEqual(race.map(response => response.status).sort(), [201, 409]);
     assert.equal(await prisma.user.count({ where: { email: emails[1] } }), 1);
     await prisma.user.update({ where: { id: stored.id }, data: { role: 'ADMIN' } });
@@ -54,6 +65,6 @@ test('PostgreSQL: register/login/me and concurrent duplicate registration', { sk
     assert.equal(deleted.status, 401);
   } finally {
     try { await prisma.user.deleteMany({ where: { email: { in: emails } } }); }
-    finally { await prisma.$disconnect(); }
+    finally { await prisma.$disconnect();await redis.quit(); }
   }
 });

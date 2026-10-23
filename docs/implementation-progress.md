@@ -1312,6 +1312,16 @@ throttling. Focused security review found no important defects. Brevo delivery t
 two external accounts was confirmed earlier; hosted OTP end-to-end verification
 still requires the backend/frontend deployment of this change.
 
+### Pointer 2 — local CI/rate-limit/monitoring preparation (2026-10-23)
+
+Dedicated branch `feat/pointer2-production-engineering`, based on `4a706157`.
+Extended existing CI, added atomic Redis account/deployment auth budgets and
+safe request/lifecycle telemetry plus opt-in hourly health workflow. No new
+migrations, booking/payment logic changes or production writes. Verification,
+limits, one owner monitoring checklist and manual backend-only release steps:
+[Pointer 2 operations](pointer2-operations.md). Hosted CI for the new revision
+and actual alert delivery require separately approved push/setup; not claimed.
+
 ### Google-only first-password setup
 
 Approved extension: an existing Google-only account may use the same verified

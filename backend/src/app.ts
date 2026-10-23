@@ -1,4 +1,6 @@
 import express from 'express';
+import { requestTelemetry } from './middleware/request-telemetry.js';
+import type { AuthRateLimiter } from './modules/auth/auth-rate-limit.js';
 import { maintenanceGuard } from './middleware/maintenance.js';
 import { createAuthClientAddress } from './middleware/auth-client-address.js';
 import { catalogueStatusRoutes } from './modules/catalogue-status/catalogue-status.routes.js';
@@ -44,6 +46,7 @@ export function createApp(dependencies: {
   frontendOrigin: string;
   maintenanceMode?: boolean;
   authTrustedProxyCidrs?: string[];
+  authRateLimiter?: AuthRateLimiter;
   healthService: HealthService;
   auth: { service: AuthService; tokens: TokenService; google?: GoogleAuth; recovery?: PasswordResetService; ownership?: OwnershipService };
   catalog: CatalogServices;
@@ -64,6 +67,7 @@ export function createApp(dependencies: {
   app.disable('x-powered-by');
   if (dependencies.maintenanceMode) app.use(maintenanceGuard);
   app.use(requestId);
+  app.use(requestTelemetry);
   app.use(helmet());
   app.use(cors({ origin: [dependencies.frontendOrigin], credentials: true }));
   // Signature verification requires original bytes; never JSON-parse first.
@@ -72,6 +76,7 @@ export function createApp(dependencies: {
   // trusted malformed submissions also abandon their browser challenge.
   app.use('/api/auth/google', googleRequest(dependencies.frontendOrigin, dependencies.auth.google?.challenge));
   app.use(express.json({ limit: '100kb' }));
+  if (dependencies.authRateLimiter) app.use('/api/auth', dependencies.authRateLimiter.middleware());
   app.use('/api/health', healthRoutes(dependencies.healthService));
   app.use('/api/catalogue', catalogueStatusRoutes(dependencies.catalogueStage));
   if (dependencies.demoCatalog) app.use('/api/demo-catalog', demoCatalogRoutes(dependencies.demoCatalog));

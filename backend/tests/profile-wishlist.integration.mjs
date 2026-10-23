@@ -55,11 +55,11 @@ test('real PostgreSQL account and wishlist HTTP contracts', { skip: !connection 
     };
     const users = [];
     for (let n = 0; n < 2; n++) {
-      const result = await request('/api/auth/register', null, 'POST', { name: `Profile integration ${n}`,
-        email: `profile-${randomUUID()}@cinehook.test`, password: 'Integration-only-password!123' });
-      assert.equal(result.status, 201);
-      ids.push(result.data.data.user.id);
-      users.push(result.data.data);
+      // Profile fixtures are already verified identities; real OTP registration
+      // is exercised by auth.integration and ownership-http.integration.
+      const user=await prisma.user.create({data:{name:`Profile integration ${n}`,email:`profile-${randomUUID()}@cinehook.test`,emailVerifiedAt:new Date()}});
+      ids.push(user.id);
+      users.push({user,accessToken:tokens.sign({userId:user.id,role:user.role,authVersion:user.authVersion})});
     }
     const movie = await prisma.movie.create({ data: { title: `Wishlist integration ${randomUUID()}`,
       description: 'Explicitly isolated test-only film.', durationMinutes: 100,

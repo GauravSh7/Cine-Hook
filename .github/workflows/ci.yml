@@ -1,8 +1,14 @@
 name: CineHook checks
 on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17-alpine
@@ -25,6 +31,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
       AUTH_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
+      GOOGLE_AUTH_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
+      PROFILE_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
       BOOKING_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
       PAYMENTS_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
       REFUNDS_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@localhost:5432/cinehook_test
@@ -47,9 +55,11 @@ jobs:
       - run: npm run build
       - run: npm run test:smoke
       - run: npm run db:deploy
+      - run: npx prisma migrate status
       - run: npm run test:integration
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -62,4 +72,62 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
       - run: npm run build
+  critical-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cinehook
+          POSTGRES_PASSWORD: cinehook_ci_only
+          POSTGRES_DB: cinehook_ownership_migration_test
+        ports:
+          - 55448:5432
+          - 55438:5432
+        options: >-
+          --health-cmd "pg_isready -U cinehook -d cinehook_ownership_migration_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 55449:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://cinehook:cinehook_ci_only@127.0.0.1:55448/cinehook_ownership_migration_test
+      OWNERSHIP_REPOSITORY_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@127.0.0.1:55448/cinehook_ownership_migration_test
+      OWNERSHIP_PROOF_TEST_REDIS_URL: redis://127.0.0.1:55449/15
+      AUTH_RATE_TEST_REDIS_URL: redis://127.0.0.1:55449/15
+      SEAT_LOCK_TEST_REDIS_URL: redis://127.0.0.1:55449/15
+      PRICING_TEST_DATABASE_URL: postgresql://cinehook:cinehook_ci_only@127.0.0.1:55438/cinehook_event_seed_pricing_ci_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run build
+      - run: npm run db:deploy
+      - name: Auth ownership, OTP, session and rate-limit regressions
+        run: |
+          npm run test:ownership:integration
+          node --import tsx --test tests/ownership-mailbox-budget.integration.mjs tests/auth-rate-limit.integration.mjs
+      - name: Prepare separate disposable pricing database
+        run: node --input-type=module -e "import pg from 'pg'; const c=new pg.Client({connectionString:process.env.DATABASE_URL}); await c.connect(); await c.query('CREATE DATABASE cinehook_event_seed_pricing_ci_test'); await c.end();"
+      - name: Fresh pricing migrations and FIRST50/payment/refund regressions
+        env:
+          DATABASE_URL: postgresql://cinehook:cinehook_ci_only@127.0.0.1:55438/cinehook_event_seed_pricing_ci_test
+        run: |
+          npm run db:deploy
+          node --import tsx --test tests/pricing.integration.mjs
