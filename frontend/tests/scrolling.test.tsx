@@ -37,7 +37,8 @@ it('history appends automatically, preserves earlier rows and retries a failed n
   rejectNext=false;await userEvent.click(screen.getByRole('button',{name:'Retry loading more'}))
   await screen.findByText(next.id)
   expect(screen.getAllByText(first[19].id)).toHaveLength(1)
-  expect(calls.filter(c=>c.path==='/api/bookings')).toHaveLength(3)
+  // Initial page, one failed read plus its bounded transport retry, then manual retry.
+  expect(calls.filter(c=>c.path==='/api/bookings')).toHaveLength(4)
 });
 
 it('filter/identity changes abort stale responses and never mix earlier rows into the new list',async()=>{

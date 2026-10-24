@@ -1,5 +1,5 @@
 export function Loading({ label = 'Loading…' }: { label?: string }) {
-  return <div role="status" className="space-y-5 py-8" aria-live="polite"><p className="muted">{label}</p>
+  return <div role="status" className="space-y-5 py-8" aria-live="polite"><p className="muted">{label}</p><p className="muted text-sm">This may take a moment on your first visit.</p>
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-hidden="true">{[1, 2, 3, 4].map(id => <div key={id} className="skeleton h-64 rounded-2xl" />)}</div></div>
 }
 export function ErrorState({ error, retry }: { error: Error; retry?: () => void }) {

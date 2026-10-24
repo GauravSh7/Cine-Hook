@@ -5,6 +5,11 @@ import { ok, user, failure } from './fixtures'
 
 afterEach(() => { delete window.google; document.querySelectorAll('script[data-cinehook-google]').forEach(s => s.remove()); vi.restoreAllMocks() })
 const result = { user, accessToken: 'google-application-token', tokenType: 'Bearer' }
+it('renders the official Google button directly without an intermediate application button',async()=>{
+  fixture();const {GoogleSignIn}=await import('../src/components/GoogleSignIn');render(<GoogleSignIn onSuccess={vi.fn()}/>);
+  expect(await screen.findByRole('button',{name:'Official Google test button'})).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Continue with Google'})).not.toBeInTheDocument();
+});
 function fixture(configured = true) {
   let callback: ((r: { credential?: string }) => void) | undefined
   const calls: string[] = []
@@ -15,7 +20,7 @@ function fixture(configured = true) {
 }
 it('requests browser-mediated Google account selection without automatic account acceptance',async()=>{
   const f=fixture(),success=vi.fn();const {GoogleSignIn}=await import('../src/components/GoogleSignIn');render(<GoogleSignIn onSuccess={success}/>);
-  await userEvent.click(await screen.findByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');
+  await screen.findByText('Official Google test button');
   expect(f.initialize.mock.calls[0]?.[0]).toMatchObject({use_fedcm_for_button:true,button_auto_select:false,auto_select:false,nonce:'n'.repeat(43)});
   expect(success).not.toHaveBeenCalled();await act(async()=>f.respond());await waitFor(()=>expect(success).toHaveBeenCalledWith(result));
 });
@@ -26,7 +31,6 @@ it('keeps unconfigured Google unavailable without loading its SDK', async () => 
 })
 it('uses the verified API result and never stores a provider credential', async () => {
   const f = fixture(), success = vi.fn(); const { GoogleSignIn } = await import('../src/components/GoogleSignIn'); render(<GoogleSignIn onSuccess={success} />)
-  await userEvent.click(await screen.findByRole('button', { name: 'Continue with Google' }))
   await screen.findByText('Official Google test button'); await act(async () => f.respond()); await waitFor(() => expect(success).toHaveBeenCalledWith(result))
   expect(JSON.stringify(sessionStorage)).not.toContain('provider-test-token')
   expect(f.initialize.mock.calls[0]![0]).toMatchObject({ nonce: 'n'.repeat(43), auto_select: false, ux_mode: 'popup' })
@@ -40,11 +44,11 @@ it('never auto-links a collision from the login form and directs users to safe r
     return base(path,options);
   });
   const {GoogleSignIn}=await import('../src/components/GoogleSignIn');render(<GoogleSignIn existingAccount={{email:user.email,password:'existing-password-123'}} onSuccess={success}/>);
-  await userEvent.click(await screen.findByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  await screen.findByText('Official Google test button');await act(async()=>f.respond());
   expect(await screen.findByRole('alert')).not.toHaveTextContent('Account Info');expect(success).not.toHaveBeenCalled();
-  expect(screen.queryByRole('button',{name:'Retry Google sign-in'})).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Retry Google sign-in'})).toBeEnabled();
   expect(screen.getByRole('link',{name:'Verify account ownership'})).toHaveAttribute('href','/forgot-password');
-  await userEvent.click(screen.getByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  await userEvent.click(screen.getByRole('button',{name:'Retry Google sign-in'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
   expect(success).not.toHaveBeenCalled();expect(proofCalls).toBe(0);expect(link).toBeUndefined();
   expect(JSON.stringify(sessionStorage)).not.toContain('existing-password-123');expect(JSON.stringify(sessionStorage)).not.toContain('password-proof-token');
 });
@@ -52,7 +56,7 @@ it('sends password-confirmed linking to the protected endpoint and does not pers
   const f=fixture(),success=vi.fn(),fetcher=globalThis.fetch;let linked:RequestInit|undefined;
   vi.stubGlobal('fetch',async(path:string,options:RequestInit)=>{if(path==='/api/auth/google/link')linked=options;return fetcher(path,options)});
   const {GoogleSignIn}=await import('../src/components/GoogleSignIn');render(<GoogleSignIn mode="link" password="existing-password-123" onSuccess={success}/>);
-  await userEvent.click(await screen.findByRole('button',{name:'Link Google account'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  await screen.findByText('Official Google test button');await act(async()=>f.respond());
   await waitFor(()=>expect(success).toHaveBeenCalledWith(result));expect(JSON.parse(String(linked?.body))).toMatchObject({password:'existing-password-123',credential:'provider-test-token',csrfToken:'c'.repeat(43)});
   expect(JSON.stringify(sessionStorage)).not.toContain('existing-password-123');
 });
@@ -63,39 +67,39 @@ it('requires explicit legacy Google security consent and obtains fresh Google ev
     return fetcher(path,options)
   });
   const {GoogleSignIn}=await import('../src/components/GoogleSignIn');render(<GoogleSignIn onSuccess={success}/>);
-  await userEvent.click(await screen.findByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  await screen.findByText('Official Google test button');await act(async()=>f.respond());
   expect(success).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole('checkbox',{name:/Remove the old unverified password/}));
-  await userEvent.click(screen.getByRole('button',{name:'Continue with Google'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  await screen.findByText('Official Google test button');await act(async()=>f.respond());
   await waitFor(()=>expect(success).toHaveBeenCalledWith(result));
   expect(submissions).toHaveLength(2);expect(submissions[1]).toMatchObject({confirmOwnership:true});
   expect(f.initialize).toHaveBeenCalledTimes(2);
 });
 it('ignores an abandoned callback after unmount', async () => {
   const f = fixture(), success = vi.fn(); const { GoogleSignIn } = await import('../src/components/GoogleSignIn'); const view = render(<GoogleSignIn onSuccess={success} />)
-  await userEvent.click(await screen.findByRole('button', { name: 'Continue with Google' })); await screen.findByText('Official Google test button'); view.unmount(); await act(async () => f.respond())
+  await screen.findByText('Official Google test button'); view.unmount(); await act(async () => f.respond())
   expect(success).not.toHaveBeenCalled(); expect(f.calls.filter(p => p === '/api/auth/google')).toHaveLength(0)
 })
 it('resets linking when the password changes during verification',async()=>{
   const f=fixture(),success=vi.fn();let resolve!:(r:Response)=>void;const fetcher=globalThis.fetch;
   vi.stubGlobal('fetch',(path:string,options:RequestInit)=>path==='/api/auth/google/link'?new Promise<Response>(r=>{resolve=r}):fetcher(path,options));
   const {GoogleSignIn}=await import('../src/components/GoogleSignIn');const view=render(<GoogleSignIn mode="link" password="first-password" onSuccess={success}/>);
-  await userEvent.click(await screen.findByRole('button',{name:'Link Google account'}));await screen.findByText('Official Google test button');await act(async()=>f.respond());
+  await screen.findByText('Official Google test button');await act(async()=>f.respond());
   expect(screen.getByRole('status')).toHaveTextContent('Verifying');
   view.rerender(<GoogleSignIn mode="link" password="changed-password" onSuccess={success}/>);
-  expect(await screen.findByRole('button',{name:'Link Google account'})).toBeEnabled();
+  expect(await screen.findByText('Official Google test button')).toBeVisible();
   await act(async()=>resolve(ok(result)));expect(success).not.toHaveBeenCalled();
 });
 it('ignores a callback after a newer password session is saved', async () => {
   const f = fixture(), success = vi.fn(); const { GoogleSignIn } = await import('../src/components/GoogleSignIn'); render(<GoogleSignIn onSuccess={success} />)
-  await userEvent.click(await screen.findByRole('button', { name: 'Continue with Google' })); await screen.findByText('Official Google test button')
+  await screen.findByText('Official Google test button')
   sessionStorage.setItem('cinehook.access-token', 'new-password-session'); await act(async () => f.respond()); expect(success).not.toHaveBeenCalled(); expect(f.calls.filter(p => p === '/api/auth/google')).toHaveLength(0)
 })
 it('ignores an in-flight Google result when password login disables the component', async () => {
   const f = fixture(), success = vi.fn(); let resolve!: (r: Response) => void
   const fetcher = globalThis.fetch; vi.stubGlobal('fetch', vi.fn((path: string, options: RequestInit) => path === '/api/auth/google' ? new Promise<Response>(r => { resolve = r }) : fetcher(path, options)))
   const { GoogleSignIn } = await import('../src/components/GoogleSignIn'); const view = render(<GoogleSignIn onSuccess={success} />)
-  await userEvent.click(await screen.findByRole('button', { name: 'Continue with Google' })); await screen.findByText('Official Google test button'); await act(async () => f.respond())
+  await screen.findByText('Official Google test button'); await act(async () => f.respond())
   view.rerender(<GoogleSignIn onSuccess={success} disabled />); await act(async () => resolve(ok(result))); expect(success).not.toHaveBeenCalled()
 })
 it('has an honest retry state when public configuration fails', async () => {

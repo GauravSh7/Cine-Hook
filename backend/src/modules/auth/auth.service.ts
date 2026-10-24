@@ -14,7 +14,12 @@ export class AuthService {
 
   async register(input: RegisterInput) {
     if (!input.registrationToken || !this.ownership) throw new AppError(403, 'EMAIL_VERIFICATION_REQUIRED', 'Verify your email before creating an account.');
-    return this.ownership.complete({ purpose: 'REGISTER', token: input.registrationToken, name: input.name, email: input.email, password: input.password });
+    return this.ownership.complete({ purpose: 'REGISTER', token: input.registrationToken, name: input.name, email: input.email, password: input.password, phone: input.phone });
+  }
+
+  async logout(userId: string) {
+    if (!this.users.revokeSessions) throw new AppError(503, 'AUTH_TEMPORARILY_UNAVAILABLE', 'Sign-out is temporarily unavailable.');
+    await this.users.revokeSessions(userId);
   }
 
   async login(input: LoginInput) {

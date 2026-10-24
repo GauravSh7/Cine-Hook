@@ -7,5 +7,6 @@ export const registerSchema = z.object({
   email,
   password: password.refine(value => Array.from(value).length >= 8),
   registrationToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/).optional(),
+  phone: z.string().trim().regex(/^\+[1-9][0-9]{7,14}$/).optional(),
 }).strict();
 export const loginSchema = z.object({ email, password }).strict();

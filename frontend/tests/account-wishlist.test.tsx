@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it } from 'vitest'
 import App from '../src/App'
@@ -112,9 +112,11 @@ it('shows upload provider failure without claiming the photo was saved', async (
 })
 it('an abandoned profile response cannot restore a logged-out identity', async () => {
   signedIn('/account'); let resolve!: (response: Response) => void
-  mockApi(path => path === '/api/account/profile' ? new Promise<Response>(done => { resolve = done }) : undefined); render(<App />)
+  mockApi(path => path === '/api/account/profile' ? new Promise<Response>(done => { resolve = done }) : path === '/api/auth/logout' ? ok({message:'Signed out'}) : undefined); render(<App />)
   await screen.findByLabelText('Full name'); await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
   await userEvent.click(screen.getByRole('button', { name: 'Logout' }))
+  await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', {name:'Logout'}))
+  await waitFor(()=>expect(sessionStorage.getItem('cinehook.access-token')).toBeNull())
   await act(async () => resolve(ok({ user: { ...user, name: 'Obsolete account' } })))
   expect(sessionStorage.getItem('cinehook.access-token')).toBeNull(); expect(screen.queryByText('Obsolete account')).not.toBeInTheDocument()
 })

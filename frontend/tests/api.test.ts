@@ -107,6 +107,57 @@ describe('API boundary', () => {
     await expect(api('/movies')).rejects.toMatchObject({ code: 'NETWORK_ERROR', message: 'Unable to connect. Please try again.' })
   })
 
+  it('allows a cold-start read beyond ten seconds and never reports a booking error', async () => {
+    vi.useFakeTimers()
+    let finish!: (response: Response) => void
+    vi.stubGlobal('fetch', () => new Promise<Response>(resolve => { finish = resolve }))
+    const { api } = await import('../src/api/client')
+    const pending = api('/movies').catch(error => error)
+    await vi.advanceTimersByTimeAsync(15000)
+    finish(new Response(JSON.stringify({ success: true, data: { items: [] } })))
+    expect(await pending).toEqual({ items: [] })
+  })
+
+  it('retries a transient proxy GET once, but never repeats an OTP mutation', async () => {
+    vi.useFakeTimers(); let attempts = 0
+    vi.stubGlobal('fetch', async () => ++attempts === 1 ? new Response('Bad gateway', {status: 502}) : new Response(JSON.stringify({success:true,data:{items:[]}})))
+    const { api } = await import('../src/api/client')
+    const pending = api('/movies').catch(error => error)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(await pending).toEqual({items:[]}); expect(attempts).toBe(2)
+    attempts = 0
+    await expect(api('/auth/ownership/request',{method:'POST',body:{email:'owner@example.com'}})).rejects.toMatchObject({status:502})
+    expect(attempts).toBe(1)
+  })
+
+  it('bounds a slow login without replaying credentials and uses neutral timeout guidance', async () => {
+    vi.useFakeTimers(); let attempts=0
+    vi.stubGlobal('fetch',()=>{attempts++; return new Promise(()=>{})})
+    const {api}=await import('../src/api/client')
+    const pending=api('/auth/login',{method:'POST',body:{}}).catch(error=>error)
+    await vi.advanceTimersByTimeAsync(60000)
+    const error=await pending
+    expect(error).toMatchObject({code:'REQUEST_TIMEOUT'}); expect((error as Error).message).not.toMatch(/booking/)
+    expect(attempts).toBe(1)
+  })
+
+  it('stops transient read retries after one attempt and retains the final request ID',async()=>{
+    vi.useFakeTimers();let attempts=0
+    vi.stubGlobal('fetch',async()=>{attempts++;return new Response(JSON.stringify({success:false,error:{code:'UNAVAILABLE',requestId:`request-${attempts}`}}),{status:503})})
+    const {api}=await import('../src/api/client');const pending=api('/cities').catch(error=>error)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(await pending).toMatchObject({status:503,requestId:'request-2'});expect(attempts).toBe(2)
+  })
+
+  it('does not send a retry when navigation aborts the read during backoff',async()=>{
+    vi.useFakeTimers();let attempts=0
+    vi.stubGlobal('fetch',async()=>{attempts++;return new Response('unavailable',{status:502})})
+    const {api}=await import('../src/api/client'),controller=new AbortController()
+    const pending=api('/movies',{signal:controller.signal}).catch(error=>error)
+    await vi.advanceTimersByTimeAsync(100);controller.abort();await vi.advanceTimersByTimeAsync(1000)
+    expect(await pending).toMatchObject({name:'AbortError'});expect(attempts).toBe(1)
+  })
+
   it('clears current identity on 401 but ignores an old-session 401', async () => {
     const { api, setAccessToken } = await import('../src/api/client')
     const events: unknown[] = []

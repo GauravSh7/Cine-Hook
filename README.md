@@ -103,6 +103,9 @@ string equality. Legacy recovery preserves history only with continuity proof;
 a clean-account recovery quarantines the old identity and does **not** inherit
 its private bookings. Auth-version checks invalidate old JWTs after credential/
 ownership changes. Protected requests recheck current identity and role.
+Confirmed logout also increments the durable auth version before clearing browser
+state. Registration collects details, verifies the mailbox, then returns to login
+without automatically storing a session.
 
 Passwords are bcrypt-hashed. JWTs validate algorithm, issuer, audience and expiry;
 the frontend stores its access token in per-tab session storage, not an HttpOnly

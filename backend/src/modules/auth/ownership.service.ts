@@ -9,7 +9,7 @@ import type { RecoveryMailer } from './password-reset.types.js';
 
 export interface CompleteOwnership {
   purpose: ProofPurpose; token: string; password: string; name?: string;
-  currentPassword?: string; cleanStartConfirmed?: boolean; email?: string;
+  currentPassword?: string; cleanStartConfirmed?: boolean; email?: string; phone?: string;
 }
 export class OwnershipService {
   constructor(private readonly users: OwnershipRepository, private readonly proofs: OwnershipProofStore,
@@ -48,7 +48,7 @@ export class OwnershipService {
     switch (input.purpose) {
       case 'REGISTER':
         if (user || !input.name?.trim()) throw invalid();
-        established = await this.users.createVerified({ email: proof.email, name: input.name.trim(), passwordHash }); break;
+        established = await this.users.createVerified({ email: proof.email, name: input.name.trim(), passwordHash, ...(input.phone ? { phone: input.phone } : {}) }); break;
       case 'VERIFY_LEGACY':
         if (!user) throw invalid();
         established = await this.users.verifyLegacy(user, passwordHash); break;

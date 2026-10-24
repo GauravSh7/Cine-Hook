@@ -22,6 +22,11 @@ beforeAll(async () => { fixtureHash = await bcrypt.hash(credentials.password, 12
 class TestUsers implements UserStore {
   records = new Map<string, StoredUser>();
   failCreate = false;
+  failRevoke = false;
+  async revokeSessions(id: string) {
+    if (this.failRevoke) throw new Error('database unavailable');
+    const user=this.records.get(id); if(user) user.authVersion=(user.authVersion??0)+1;
+  }
   async create(input: { name: string; email: string; passwordHash: string }): Promise<PublicUser> {
     if (this.failCreate || [...this.records.values()].some(u => u.email === input.email)) {
       throw new AppError(409, 'EMAIL_EXISTS', 'Email is already registered.');
@@ -45,7 +50,10 @@ function setup(seed = false) {
   const id = randomUUID();
   if (seed) users.records.set(id, { id, name: credentials.name, email: credentials.email,
     passwordHash: fixtureHash, role: 'USER', emailVerifiedAt: new Date(), authVersion: 0, authDisabledAt: null, createdAt: new Date(), updatedAt: new Date() });
-  const tokens = new TokenService(options);
+  const tokens = new TokenService({...options,currentAuth:async userId=>{
+    const user=users.records.get(userId);
+    return user?{...user,authVersion:user.authVersion??0,emailVerifiedAt:user.emailVerifiedAt??null,authDisabledAt:user.authDisabledAt??null}:null;
+  }});
   const app = createApp({ frontendOrigin: 'http://localhost:5173',
     catalog: testCatalog().services,
     healthService: new HealthService({ checkDatabase: async () => {}, checkRedis: async () => {} }),
@@ -86,6 +94,8 @@ describe('public registration', () => {
     { ...credentials, role: 'ADMIN' },
     { ...credentials, userId: randomUUID() },
     { ...credentials, password: 'abcd\u0000efgh' },
+    { ...credentials, phone: '9876543210' },
+    { ...credentials, phone: '+01234567' },
   ])('rejects invalid input and privilege injection', async body => {
     const { app, users } = setup();
     const response = await request(app).post('/api/auth/register').send(body);
@@ -97,6 +107,18 @@ describe('public registration', () => {
 });
 
 describe('login and protected profile', () => {
+  it('durably rejects all previously issued sessions after authenticated logout', async()=>{
+    const {app,tokens,id}=setup(true),token=tokens.sign({userId:id,role:'USER',authVersion:0});
+    expect((await request(app).post('/api/auth/logout').set('Authorization',`Bearer ${token}`).send({})).status).toBe(200);
+    expect((await request(app).get('/api/auth/me').set('Authorization',`Bearer ${token}`)).status).toBe(401);
+    expect((await request(app).post('/api/auth/logout').send({})).status).toBe(401);
+  });
+  it('does not claim logout success when durable revocation fails',async()=>{
+    const {app,tokens,id,users}=setup(true);users.failRevoke=true;
+    const response=await request(app).post('/api/auth/logout').set('Authorization',`Bearer ${tokens.sign({userId:id,role:'USER',authVersion:0})}`).send({});
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    expect(users.records.get(id)?.authVersion).toBe(0);
+  });
   it('logs in publicly using a normalized email and fetches /me', async () => {
     const { app, id } = setup(true);
     const login = await request(app).post('/api/auth/login').send({ email: ' GAURAV@EXAMPLE.COM ', password: credentials.password });

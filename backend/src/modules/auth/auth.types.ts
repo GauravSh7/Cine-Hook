@@ -20,11 +20,12 @@ export interface UserStore {
   create(input: { name: string; email: string; passwordHash: string }): Promise<PublicUser>;
   findByEmail(email: string): Promise<StoredUser | null>;
   findById(id: string): Promise<PublicUser | null>;
+  revokeSessions?(id: string): Promise<void>;
 }
 export interface Identity { userId: string; role: UserRole }
 export interface AuthSnapshot extends PublicUser {
   authVersion: number; emailVerifiedAt: Date | null; authDisabledAt: Date | null;
   providerOnly?: boolean;
 }
-export interface RegisterInput { name: string; email: string; password: string; registrationToken?: string }
+export interface RegisterInput { name: string; email: string; password: string; registrationToken?: string; phone?: string }
 export interface LoginInput { email: string; password: string }

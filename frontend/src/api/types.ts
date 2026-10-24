@@ -42,7 +42,7 @@ export interface MovieInput { title: string; description: string; durationMinute
 export interface ShowInput { movieId: string; screenId: string; startsAt: string; prices: { seatType: SeatType; pricePaise: number }[] }
 export interface AuthResult { user: User; accessToken: string; tokenType: 'Bearer' }
 export interface LoginInput { email: string; password: string }
-export interface RegisterInput extends LoginInput { name: string; registrationToken?: string }
+export interface RegisterInput extends LoginInput { name: string; registrationToken?: string; phone?: string }
 interface AdminBookingBase { id: string; user: { id: string; name: string }; status: BookingStatus; totalPaise: number; expiresAt: string; createdAt: string; payment: Pick<Payment, 'id' | 'status' | 'amountPaise'> | null }
 export type AdminBooking = AdminBookingBase & (
   { bookingKind?: 'MOVIE'; show: { id: string; startsAt: string; movie: { id: string; title: string }; screen: { id: string; name: string; theatre: { id: string; name: string } } }; eventSession?: null; seats: Pick<BookingSeat, 'rowName' | 'seatNumber' | 'seatType' | 'pricePaise'>[] }

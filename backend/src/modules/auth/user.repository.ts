@@ -11,6 +11,10 @@ export const publicSelect = {
 export class UserRepository implements UserStore {
   constructor(private readonly prisma: PrismaClient) {}
 
+  async revokeSessions(id: string): Promise<void> {
+    await this.prisma.user.update({ where: { id }, data: { authVersion: { increment: 1 } }, select: { id: true } });
+  }
+
   async create(input: { name: string; email: string; passwordHash: string }): Promise<PublicUser> {
     try {
       return toPublicUser(await this.prisma.user.create({ data: { ...input, role: 'USER' }, select: publicSelect }));

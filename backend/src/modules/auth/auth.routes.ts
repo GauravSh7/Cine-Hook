@@ -20,5 +20,6 @@ export function authRoutes(service: AuthService, tokens: TokenService, origin: s
   router.post('/register', validateBody(registerSchema), controller.register);
   router.post('/login', validateBody(loginSchema), controller.login);
   router.get('/me', authMiddleware(tokens), controller.me);
+  router.post('/logout', authMiddleware(tokens), controller.logout);
   return router;
 }

@@ -5,6 +5,7 @@ import { useCity } from '../app/city-context'
 import { Brand } from './Brand'
 import { LocationDialog } from './LocationDialog'
 import { LocationPin } from './LocationPin'
+import { LogoutButton } from './LogoutButton'
 
 const categories = ['Movies', 'Stream', 'Events', 'Sports', 'Activities', 'Offers']
 export function PublicLayout({ children }: { children: ReactNode }) {
@@ -14,7 +15,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!menu) return
     const dismiss = (event: PointerEvent) => { if (!menuWrap.current?.contains(event.target as Node)) setMenu(false) }
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenu(false); menuButton.current?.focus() } }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('[role="dialog"][aria-modal="true"]')) { setMenu(false); menuButton.current?.focus() } }
     document.addEventListener('pointerdown', dismiss)
     document.addEventListener('keydown', escape)
     return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', escape) }
@@ -29,7 +30,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   return <><a className="skip-link" href="#main-content">Skip to content</a>
     <header className="site-header print:hidden"><div className="header-main"><Link className="brand" aria-label="CineHook" to="/" onClick={scrollHome}><Brand /></Link>
       <button className="secondary location-button" onClick={() => setPicker(true)}><LocationPin/><span>{cityName}</span><span aria-hidden="true">⌄</span></button>
-      {session.user ? <div className="menu-wrap profile-menu-wrap" ref={menuWrap}><button type="button" className="account-header-link" ref={menuButton} aria-label={`${session.user.name} account menu`} aria-expanded={menu} aria-controls="account-menu" onClick={() => setMenu(value => !value)}><span className="user-avatar-icon" aria-hidden="true">{session.user.avatarUrl ? <img src={session.user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>}</span><span>{session.user.name}</span></button><nav id="account-menu" className={`account-menu panel ${menu ? 'account-menu-open' : ''}`} aria-label="Account menu" aria-hidden={!menu} inert={!menu} onClick={() => setMenu(false)}><Link to="/bookings">My Bookings</Link><Link to="/wishlist">My Wishlist</Link><Link to="/account">Account Info</Link><Link to="/help">Help &amp; Support</Link><button onClick={session.logout}>Logout</button></nav></div> : <Link className="btn signin-link" aria-label="Login" to={login}><span aria-hidden="true">♙</span> <span>Sign in</span></Link>}
+      {session.user ? <div className="menu-wrap profile-menu-wrap" ref={menuWrap}><button type="button" className="account-header-link" ref={menuButton} aria-label={`${session.user.name} account menu`} aria-expanded={menu} aria-controls="account-menu" onClick={() => setMenu(value => !value)}><span className="user-avatar-icon" aria-hidden="true">{session.user.avatarUrl ? <img src={session.user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>}</span><span>{session.user.name}</span></button><nav id="account-menu" className={`account-menu panel ${menu ? 'account-menu-open' : ''}`} aria-label="Account menu" aria-hidden={!menu} inert={!menu} onClick={() => setMenu(false)}><Link to="/bookings">My Bookings</Link><Link to="/wishlist">My Wishlist</Link><Link to="/account">Account Info</Link><Link to="/help">Help &amp; Support</Link><LogoutButton/></nav></div> : <Link className="btn signin-link" aria-label="Login" to={login}><span aria-hidden="true">♙</span> <span>Sign in</span></Link>}
     </div><nav className="category-nav" aria-label="Categories"><div>{categories.map((name, index) => {
       const to = index === 0 ? '/movies' : `/${name.toLowerCase()}`
       const active = index === 0 ? location.pathname === '/' || location.pathname.startsWith('/movies') : location.pathname === to || location.pathname.startsWith(`${to}/`)

@@ -23,7 +23,7 @@ export class OwnershipRepository {
       emailVerifiedAt: user.emailVerifiedAt, authDisabledAt: user.authDisabledAt,
       providerOnly: Boolean(user.googleSubject && user.passwordHash === null) } : null;
   }
-  async createVerified(input: { name: string; email: string; passwordHash: string }) {
+  async createVerified(input: { name: string; email: string; passwordHash: string; phone?: string }) {
     try { return await this.prisma.user.create({ data: { ...input, role: 'USER', emailVerifiedAt: new Date() }, select: ownershipSelect }); }
     catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw conflict(); throw error; }
   }

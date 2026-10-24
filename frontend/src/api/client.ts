@@ -15,7 +15,7 @@ export function getServerNow(): number { return Date.now() + serverOffsetMs }
 
 const safeMessages: Record<string, string> = {
   EMAIL_VERIFICATION_REQUIRED: 'Verify your email and existing password before signing in. Use account recovery below.',
-  OWNERSHIP_CONTINUITY_REQUIRED: 'This account needs additional ownership proof. Verify your existing password and email, or create a clean account without previous history. Google users should sign in with Google.',
+  OWNERSHIP_CONTINUITY_REQUIRED: 'This older account needs its existing password as well as email verification to protect its history. Use “Verify an existing account” on the login page. If you do not know that password, contact support. Google users should sign in with Google.',
   OWNERSHIP_PROOF_INVALID: 'Verification is invalid or expired. Request a new code and try again.',
   OWNERSHIP_CONFLICT: 'Account ownership changed. Start again; no accounts were merged.',
   OWNERSHIP_RATE_LIMITED: 'Too many verification requests. Please try again later.',
@@ -56,20 +56,37 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   const destination = apiPath(path)
   if (options.signal?.aborted) throw aborted()
   const snapshotToken = options.token === undefined ? accessToken : options.token
+  const method = (options.method ?? 'GET').toUpperCase()
+  const isRead = method === 'GET' && options.body === undefined
+  const financialWrite = !isRead && /^\/api\/(bookings|payments|event-bookings)(\/|$)/.test(destination)
+  const timeoutMessage = financialWrite ? 'The request took too long. Please check your booking before trying again.' : 'The connection is taking longer than expected. Please try again in a moment.'
   const controller = new AbortController()
   let timedOut = false
   let rejectInterrupted: (reason: unknown) => void = () => undefined
   const interrupted = new Promise<never>((_resolve, reject) => { rejectInterrupted = reject })
   const cancel = () => { controller.abort(); rejectInterrupted(aborted()) }
   options.signal?.addEventListener('abort', cancel, { once: true })
-  const timeout = setTimeout(() => { timedOut = true; controller.abort(); rejectInterrupted(new ApiError(0, 'REQUEST_TIMEOUT', 'The request took too long. Please check your booking before trying again.')) }, 10000)
+  const timeout = setTimeout(() => { timedOut = true; controller.abort(); rejectInterrupted(new ApiError(0, 'REQUEST_TIMEOUT', timeoutMessage)) }, financialWrite ? 10000 : 60000)
   const headers = new Headers({ Accept: 'application/json' })
   if (snapshotToken) headers.set('Authorization', `Bearer ${snapshotToken}`)
   const multipart = options.body instanceof FormData
   if (options.body !== undefined && !multipart) headers.set('Content-Type', 'application/json')
   try {
     const operation = async (): Promise<T> => {
-      const response = await fetch(destination, { method: options.method ?? 'GET', headers, body: options.body === undefined ? undefined : multipart ? options.body as FormData : JSON.stringify(options.body), signal: controller.signal, credentials: 'same-origin', cache: 'no-store' })
+      const send = () => fetch(destination, { method, headers, body: options.body === undefined ? undefined : multipart ? options.body as FormData : JSON.stringify(options.body), signal: controller.signal, credentials: 'same-origin', cache: 'no-store' })
+      let response = await send()
+      // One retry of safe reads only, within the original deadline. In particular,
+      // never replay OTP, login, booking or payment writes after an uncertain result.
+      if (isRead && [502, 503, 504].includes(response.status) && !controller.signal.aborted) {
+        await response.body?.cancel()
+        await new Promise<void>((resolve, reject) => {
+          const cancelWait = () => { clearTimeout(wait); reject(aborted()) }
+          const wait = setTimeout(() => { controller.signal.removeEventListener('abort', cancelWait); resolve() }, 750)
+          controller.signal.addEventListener('abort', cancelWait, { once: true })
+        })
+        if (controller.signal.aborted) throw aborted()
+        response = await send()
+      }
       if (controller.signal.aborted) throw aborted()
       const serverDate = Date.parse(response.headers.get('Date') ?? '')
       if (Number.isFinite(serverDate)) serverOffsetMs = serverDate - Date.now()
@@ -78,7 +95,10 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
         if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cinehook:unauthorized', { detail: { token: snapshotToken } }))
       }
       let envelope: unknown
-      try { envelope = await response.json() } catch { throw new ApiError(response.status, 'INVALID_RESPONSE', 'We couldn’t load this information. Please try again.') }
+      try { envelope = await response.json() } catch {
+        const upstream = [502, 503, 504].includes(response.status)
+        throw new ApiError(response.status, upstream ? 'UPSTREAM_UNAVAILABLE' : 'INVALID_RESPONSE', upstream ? 'The service is still connecting. Please try again in a moment.' : 'We couldn’t load this information. Please try again.')
+      }
       if (controller.signal.aborted) throw aborted()
       if (!envelope || typeof envelope !== 'object') throw new ApiError(response.status, 'INVALID_RESPONSE', 'We couldn’t load this information. Please try again.')
       const body = envelope as { success?: unknown; data?: T; error?: { code?: unknown; requestId?: unknown } }
@@ -94,7 +114,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   } catch (error) {
     if (options.signal?.aborted) throw aborted()
     if (error instanceof ApiError) throw error
-    if (timedOut) throw new ApiError(0, 'REQUEST_TIMEOUT', 'The request took too long. Please check your booking before trying again.')
+    if (timedOut) throw new ApiError(0, 'REQUEST_TIMEOUT', timeoutMessage)
     throw new ApiError(0, 'NETWORK_ERROR', 'Unable to connect. Please try again.')
   } finally { clearTimeout(timeout); options.signal?.removeEventListener('abort', cancel) }
 }

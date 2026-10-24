@@ -14,6 +14,11 @@ export class AuthController {
     res.json({ success: true, data: await this.service.login(req.body) });
   };
 
+  logout: RequestHandler = async (_req, res) => {
+    await this.service.logout((res.locals.identity as Identity).userId);
+    res.json({ success: true, data: { message: 'Signed out.' } });
+  };
+
   me: RequestHandler = async (_req, res) => {
     const identity = res.locals.identity as Identity;
     res.json({ success: true, data: { user: res.locals.authUser ? toPublicUser(res.locals.authUser) : await this.service.getMe(identity.userId) } });

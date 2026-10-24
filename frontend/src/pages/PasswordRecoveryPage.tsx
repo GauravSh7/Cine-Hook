@@ -6,7 +6,7 @@ import { useSession } from '../app/session-context'
 export function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
   const session = useSession()
   const [params] = useSearchParams()
-  const [mode,setMode] = useState<'RESET_PASSWORD'|'VERIFY_LEGACY'|'CLEAN_START'>(() => params.get('mode') === 'VERIFY_LEGACY' ? 'VERIFY_LEGACY' : params.get('mode') === 'CLEAN_START' ? 'CLEAN_START' : 'RESET_PASSWORD')
+  const [mode] = useState<'RESET_PASSWORD'|'VERIFY_LEGACY'|'CLEAN_START'>(() => params.get('mode') === 'VERIFY_LEGACY' ? 'VERIFY_LEGACY' : params.get('mode') === 'CLEAN_START' ? 'CLEAN_START' : 'RESET_PASSWORD')
   const [currentPassword,setCurrentPassword]=useState(''),[name,setName]=useState(''),[cleanConsent,setCleanConsent]=useState(false)
   const [step, setStep] = useState<'email' | 'otp' | 'password' | 'done'>('email')
   const [email, setEmail] = useState(''), [otp, setOtp] = useState('')
@@ -64,7 +64,7 @@ export function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
       <p className="muted mt-3">{step === 'email' ? (reset ? 'Request a new code to set or reset your password.' : 'Enter your account email to receive a verification code.') : step === 'otp' ? 'Enter the six-digit code. It expires in 10 minutes.' : step === 'password' ? 'Choose a strong password. If you already have one, use a different password.' : ''}</p>
       {message && <p role="status" className="mt-4">{message}</p>}
       {mode === 'CLEAN_START' && <p className="mt-4">Your previous private history is not transferred. The old account is secured separately; restoring its history requires additional ownership review. This does not cancel any bookings or financial records.</p>}
-      {step === 'email' && <label className="block mt-4">Recovery option<select className="input mt-2" value={mode} disabled={busy} onChange={event=>{restart();setMode(event.target.value as typeof mode)}}><option value="RESET_PASSWORD">Reset a verified account password</option><option value="VERIFY_LEGACY">Verify existing password and email — keep history</option><option value="CLEAN_START">Start clean — no previous private history</option></select></label>}
+      {mode === 'VERIFY_LEGACY' && <p className="muted mt-4">For this older account, we need both your email code and existing password to protect your history. If you no longer know the password, contact support. Accounts linked to Google can sign in with Google.</p>}
       {step === 'done' ? <Link className="btn mt-5" to="/login">Back to login</Link> : <form className="mt-6 space-y-4" onSubmit={submit}>
         {step === 'email' && <label className="block">Email address<input className="input mt-2" type="email" maxLength={254} autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} required disabled={busy} /></label>}
         {step === 'otp' && <label className="block">Verification code<input className="input mt-2" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, ''))} required disabled={busy} /></label>}

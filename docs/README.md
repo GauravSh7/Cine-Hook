@@ -20,6 +20,8 @@ documentation-only follow-ups. Publishing these documents does not deploy the ap
   current CI and manual monitoring run evidence are linked in the root README.
 - [Live screenshot provenance](assets/README.md): public captures and manual gaps.
 - [Pointer 4 documentation review](documentation-review.md): checks and scope.
+- [Final UX release](final-ux-release.md): final authentication/loading changes,
+  evidence, controlled release order and owner-only live acceptance.
 
 ## Deeper implementation records
 

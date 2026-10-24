@@ -87,8 +87,9 @@ Sources: `modules/auth/ownership.service.ts`, `ownership.repository.ts`,
   snapshot; expiry, replay, resend and concurrent updates fail safely. Reset
   rejects password reuse and increments durable auth version.
 - JWTs are HS256 with issuer/audience/expiry validation and a maximum configured
-  lifetime of 24 hours. Tokens live in per-tab `sessionStorage`; logout clears
-  the browser token. This is not an HttpOnly-cookie/refresh-token design.
+  lifetime of 24 hours. Tokens live in per-tab `sessionStorage`; confirmed logout
+  increments durable `authVersion` before clearing the browser token, invalidating
+  the account's active sessions. This is not an HttpOnly-cookie/refresh-token design.
 - Auth limits use HMAC-derived identity keys, not spoofable forwarding headers.
   The approved hosted fallback uses mailbox budgets, with deliberate shared
   deployment limits rather than a guessed Render/Vercel client-IP quota.
