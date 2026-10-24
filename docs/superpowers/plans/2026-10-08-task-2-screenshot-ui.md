@@ -28,7 +28,7 @@ only local. Location modal actual API cities/search/selection/save/close/keyboar
 No screenshot New Delhi default unless an actual city is selected. Public layouts
 apply to Auth too. Account pages reuse account sidebar/MyBookings/Wishlist/
 AccountInfo/HelpSupport/Logout, collapse responsively. Native vector/code assets
-fine; existing assets/hero.png is an unrelated Vite graphic, DO NOT use it.
+fine; do not use unrelated Vite starter graphics (removed in the final cleanup).
 
 Supported routes: / and /movies existing actual API discovery; /stream,/events,
 /sports,/activities visual thematic hero + category tiles + clearly unavailable

@@ -57,3 +57,23 @@ records. The [documentation index](README.md) explains this rather than silently
 rewriting their historical evidence. Use current code and the new entry points
 for setup/architecture. Existing uncommitted authentication-checklist edits were
 left untouched and excluded. Nothing was pushed; Pointer 5 was not started.
+
+## Final publication follow-up
+
+The final cleanup preserves both documentation commits and all useful tests.
+Three unreferenced Vite starter assets and an obsolete generated review diff were
+removed; their earlier versions remain recoverable in Git history. Recovery
+archives and generated review/build output are now explicitly ignored. The old
+authentication-checklist working notes were preserved privately outside Git;
+the public checklist now describes the current safe release process without
+internal payment identifiers. A test-suite guide documents existing commands.
+
+Fresh local verification: **862 backend**, **273 frontend** and **3 smoke** tests
+passed, alongside frontend lint, both typechecks/builds and Prisma validation.
+The initial parallel run hit two smoke startup deadlines and one frontend test
+deadline; isolated smoke and bounded-worker frontend reruns passed without
+changing assertions or timeout limits. These local results do not replace the
+versioned **850 backend** CI evidence or claim a new local integration run.
+
+The final publication separately checks GitHub CI. No application behavior,
+schema, hosted configuration, customer records or deployment is changed here.

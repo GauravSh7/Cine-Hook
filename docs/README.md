@@ -1,8 +1,8 @@
 # Documentation index
 
 Start here rather than treating every historical module checkpoint as current.
-The current documentation baseline is `76c42a74`; Pointer 3 and Pointer 4 are
-local documentation-only follow-ups until separately approved for push.
+The application baseline is `76c42a74`; Pointer 3 and Pointer 4 are reviewed
+documentation-only follow-ups. Publishing these documents does not deploy the app.
 
 ## Current entry points
 
@@ -13,6 +13,8 @@ local documentation-only follow-ups until separately approved for push.
   development database boundaries and the legacy seeded-admin limitation.
 - [Testing and recovery](testing-and-recovery.md): actual reviewed CI totals,
   restorable checkpoint evidence, safe recovery steps and unverified guarantees.
+- [Test organization and commands](../backend/tests/README.md): suite boundaries,
+  disposable integration targets and resource-conscious local verification.
 - [Pointer 2 operations](pointer2-operations.md): rate-limit budgets, logging and
   monitoring setup. Its pre-push verification paragraphs are dated history;
   current CI and manual monitoring run evidence are linked in the root README.

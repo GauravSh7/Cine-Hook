@@ -12,7 +12,8 @@ Repository -> Prisma -> PostgreSQL. Temporary shared locks live in Redis.
 Repository: C:/Users/gaura/OneDrive/Desktop/Cine-Hook.
 Base: 54ac39c, main, clean working tree, origin GauravSh7/Cine-Hook.
 Only the React/Vite starter and README exist. Tailwind and backend are absent.
-The starter includes its tracked hero.png. Docker is unavailable locally.
+The original starter included an unused hero illustration, removed during the
+final repository cleanup. Docker was unavailable locally at this checkpoint.
 The ChatGPT mirror has no source files. The available conversation confirms
 architecture, but full DB column definitions and approved UI designs could
 not be retrieved. Do not use the generated study PDF as an exact schema spec:

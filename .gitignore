@@ -9,3 +9,14 @@ dist/
 .vscode/
 .DS_Store
 backend/.staging-parity/
+
+# Local recovery archives and generated review/build output are never source.
+*.dump
+*.backup
+*.sql.gz
+*.tsbuildinfo
+.cache/
+.vite/
+/.superpowers/reviews/**/review.diff
+/backups/
+/recovery/

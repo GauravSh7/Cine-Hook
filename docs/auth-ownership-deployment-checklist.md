@@ -1,87 +1,105 @@
-# Authentication ownership — hosted deployment checklist
+# Authentication ownership — controlled release checklist
 
-Prepared 2026-10-20. **Not executed. Requires separate explicit approval for push/merge, hosted migration and releases.** Local commit approval is not deployment approval.
+Current public runbook, 24 October 2026. Authentication ownership and FIRST50
+migrations are already applied in the reviewed hosted release (17 migrations).
+Do not execute old migration/deployment checkpoints again. This file is procedure,
+**not authorization**; documentation publication does not authorize deployment.
 
-Final local review: fallback/configuration diff reviewed; refreshed 9 focused unit tests plus the mailbox-budget real-route/isolated-Redis integration passed. Backend typecheck/build, Prisma validation and whitespace checks passed. All 16 migration files were reviewed for expected inventory; the auth migration/schema are unchanged since `aab4181`, so the earlier isolated migration/recovery test was not repeated. The ordered procedure below supersedes historical blocker notes. Local preparation is GO for approval; hosted execution remains blocked until explicit authorization and an effective maintenance gate are confirmed.
+Historical private rollout notes were preserved outside Git before this cleanup.
+Public recovery evidence is in [testing and recovery](testing-and-recovery.md);
+identity rules and isolated security-test evidence are in
+[the ownership report](auth-ownership-rollout.md).
 
-## Approved Free-plan gate implementation — activation awaits separate approval
+## 1. Before a separately approved production release
 
-This sequence supersedes earlier hypothetical gate/paid-plan notes. No paid feature is needed. `npm run start:maintenance` runs the compiled standalone bridge; it imports no database, Redis, auth or provider runtime. `MAINTENANCE_MODE=true` enables the new application guard before parsers, authentication and webhooks. No JWT/role/header/cookie bypass exists. Both gates return JSON 503, Retry-After 60, no-store; marker is `bridge-v1` or `guard-v1`. Only exact GET/HEAD `/api/health/live` and `/api/health/ready` are allowed. Bridge health means the gate is alive, **not** database readiness; guarded application readiness still checks dependencies.
+- Record the exact approved Git revision and compatible frontend/backend artifacts.
+  Verify current main, CI, production revision and pending migrations.
+- Keep Render Auto-Deploy OFF and Vercel automatic builds paused unless the owner
+  explicitly approves changing those controls. A green CI job does not authorize
+  or perform production deployment.
+- Privately verify database hostname, database, role and TLS identity. Take a
+  fresh independent recovery checkpoint before schema writes; verify restoration
+  in a separate isolated database. Preserve older backups and snapshots.
+- Confirm Brevo sender/API readiness and Google Web client configuration.
+  Authorized origin must match `FRONTEND_ORIGIN` exactly; keep nonce, CSRF,
+  audience/issuer and server signature validation.
+- Retain existing TEST-only payment, tax and coupon settings. Never copy local
+  secrets into Git or browser variables, or enable live Razorpay credentials.
 
-**Exact future activation sequence (every hosted step requires explicit authorization):**
+## 2. Auth/proxy configuration
 
-1. Keep auto-deploy/build gates in place. Approve/publish only the reviewed revision and schedule a short maintenance window; prepare matching artifacts. Confirm no automatic migrations in build/start and no other workers/cron services can write. Do not start the migration yet.
-2. Privately save Render `MAINTENANCE_MODE=true` and the approved OTP settings (`AUTH_TRUSTED_PROXY_CIDRS=` empty, `AUTH_OTP_RATE_LIMIT_MODE=mailbox-budget`, `AUTH_OTP_DAILY_EMAIL_BUDGET=240`), retaining Brevo/Google/JWT/provider settings. Change Render Start Command to **`npm run start:maintenance`**, build `npm ci && npm run db:generate && npm run build`, and manually deploy the reviewed revision. Old code ignores the new flag: maintenance has NOT started until bridge cutover/drain is confirmed.
-3. Verify both `https://cinehook.onrender.com` and `https://cine-hook-xi.vercel.app` API paths return 503 with `bridge-v1` (auth, bookings, payments and webhook); verify health 200. Use empty/invalid bodies only, no customer credentials or financial writes. The Vercel shell may remain visible; its API writes cannot pass. Confirm Render's deployment events show **all old instances terminated**, not just “new build healthy”; wait through configured shutdown/drain time and verify no in-flight business/DB writes remain. Stop on absent evidence. Do not treat a sleep or a few 503s as proof of process termination.
-4. With the bridge stable and old writers gone, privately record current Neon identity, pending migrations and baseline counts; take/verify a fresh checkpoint. Apply only the approved additive authentication migration using the approved direct target connection. Stop on unexpected migrations or partial failure. Never reset/seed/backfill ownership.
-5. Keep `MAINTENANCE_MODE=true`. Change Render Start Command back to **`npm start`** and manually deploy the same reviewed security revision. Confirm both API entry points still return 503, now `guard-v1`; verify genuine application health/readiness, correct revision and complete bridge/old-instance termination. On failure leave/redeploy the bridge, not vulnerable application code.
-6. While the backend remains guarded, manually release the matching Vercel frontend (one authorized ignored-build override, then reinstate the build gate). Verify static release and both API gates. Confirm fallback, Brevo sender and Google origin/client match privately. Public sign-in cannot be acceptance-tested while this no-bypass gate is closed; do not claim otherwise.
-7. Obtain/retain explicit reopening approval. Set **`MAINTENANCE_MODE=false`** and manually redeploy the same secure backend revision with `npm start`. This supervised opening happens only after migration, matching frontend and old-worker removal. Immediately run controlled live acceptance: Brevo registration/reset, Change Email, Google-only sign-in/profile reload/logout, old-session rejection and approved ownership recovery without inherited history. Public writes are now possible; this is not a hidden/private acceptance window. Reclose on failure. Never let an old vulnerable revision become the running fallback.
-8. Check Razorpay TEST webhook retry delivery, booking/payment/refund consistency and baseline/history preservation; then finish reopening monitoring. Do not create customer test bookings or alter financial policies without separate approval.
+The approved small-deployment fallback is:
 
-**Pending payments/webhooks:** all order/verify/cancel/refund endpoints and webhook processing are deferred, not acknowledged or queued locally. No hold is extended, no seats reacquired and no payment outcome fabricated. Existing Redis TTLs continue naturally. Razorpay documents non-2xx retries for up to 24 hours after event creation, then webhook disablement ([provider source](https://github.com/razorpay/markdown-docs/blob/master/webhooks/best-practices.md)). Keep downtime short; inspect oldest failing events and enabled status before/after. Verify signed retries reach the existing idempotent processor. Late captures for expired holds follow existing reconciliation/refund rules. Retry delivery is not a guarantee: missed/disabled events require separately approved provider reconciliation; never return a false 2xx to suppress retries.
+```dotenv
+AUTH_TRUSTED_PROXY_CIDRS=
+AUTH_OTP_RATE_LIMIT_MODE=mailbox-budget
+AUTH_OTP_DAILY_EMAIL_BUDGET=240
+```
 
-**Recovery:** preserve maintenance and checkpoints on migration failure; inspect/forward-repair partial DDL with explicit approval. If new gated backend fails, retain the standalone bridge (no application DB work). If live acceptance fails, re-enable `MAINTENANCE_MODE=true` and redeploy or switch to the bridge; flag changes are rolling deployments, not instantaneous kill switches. Wait for all open secure instances/in-flight work to drain before further DB work. Never roll back to pre-ownership code, drop security columns, or restore a whole database over newer financial records without incident approval and reconciliation.
+Keep global Express proxy trust disabled. Neither client-supplied forwarding
+headers nor Render outbound IPs establish trusted inbound client identity.
+Mailbox limits and a bounded deployment email budget avoid a shared-proxy quota.
+The deliberate trade-off is possible mailbox/global-budget denial of service;
+this is not bot detection. Existing OTP verification remains available when the
+send budget is exhausted. Accepted sends can spend budget even if delivery fails.
 
-Local verification: **13 focused auth/gate tests, 33 existing payment tests and 1 compiled-bridge process test passed; backend typecheck/build and diff check passed.** Tests cover direct/proxied auth/booking/payment blocking, old-session and spoofed bypass headers, raw malformed webhooks, exact health exceptions, closed/open restart behavior, environment validation and standalone operation with deliberately invalid database/provider settings. Existing payment tests cover signature/idempotency/state behavior without hosted writes. No real email/provider or hosted write occurred. Hosted drain proof, actual Vercel forwarding/health path and provider retry acceptance remain checks for the authorized activation window.
+`AUTH_API_GLOBAL_LIMIT` defaults to 2,000 admitted auth attempts per 15 minutes;
+see [Pointer 2 operations](pointer2-operations.md) for endpoint-specific limits
+and Redis fail-closed behavior. Do not weaken proof/ownership checks to make a
+legacy account, provider failure or exhausted quota pass.
 
-1. **Approve the exact revision.** Review the feature commit and complete local security report. Preserve unrelated main-checkout work. Before an eventual authorized push/merge, prevent automatic Render/Vercel releases from bypassing this checklist. Keep Razorpay live payments disabled and leave business/financial settings unchanged.
-2. **Prepare the matching artifacts and verify prerequisites privately.** Match Neon hostname, database and role against the approved target; record migration status and baseline user/business counts. Prepare backend/frontend artifacts from the same reviewed feature revision, without releasing them. Confirm Render/Vercel deployment gates remain in place. Verify Brevo sender/API availability and Google Web-client origin `https://cine-hook-xi.vercel.app`, matching Render `GOOGLE_CLIENT_ID` and `FRONTEND_ORIGIN`. The owner-approved mailbox-budget fallback supersedes the inbound-CIDR blocker; never guess proxy ranges.
-3. **Verify a recoverable backup.** Before migration writes, obtain an authorized Neon branch/PITR checkpoint if available, otherwise a securely stored PostgreSQL custom-format dump. Record its identity/time and access controls, verify restorability in a separate approved isolated target, and compare baseline records. A successful dump command or the local fixture backup alone is insufficient. Abort without a verified recovery path.
-4. **Enter coordinated maintenance, then set environment variables.** Inform users of one-time reauthentication. Establish an actual owner-approved public-traffic gate (including the directly reachable Render URL), stop old workers, and prevent premature automatic restarts/releases. A Vercel ignored-build setting is not traffic maintenance. If no effective traffic gate is available, stop the rollout. Refresh/verify the recovery checkpoint immediately before migration and record baseline counts. While closed, set Render `AUTH_TRUSTED_PROXY_CIDRS` empty, `AUTH_OTP_RATE_LIMIT_MODE=mailbox-budget`, `AUTH_OTP_DAILY_EMAIL_BUDGET=240`; verify existing `BREVO_API_KEY`, `PASSWORD_RESET_FROM`, optional `PASSWORD_RESET_FROM_NAME`, Google settings and durable Redis/Neon connections privately. Do not rotate JWT secrets or alter financial settings. Saving environment variables may restart a service: do this only inside maintenance, not as an early configuration step. Account for TEST-webhook retries without modifying provider evidence.
-5. **Migrate only the approved target.** With privately scoped connection settings and confirmed identity, run from `backend`: `npm ci`, `npm run db:generate`, then `npm run db:deploy`. Apply only `20261019000000_email_ownership_auth` if that is the sole pending approved migration; stop if other unexpected migrations are pending. Verify added columns/table/defaults and unchanged historical relationships/counts. Never run reset, seeds or verification/quarantine backfills.
-6. **Deploy backend only after migration succeeds, then release frontend.** Still closed, manually deploy Render at the approved revision, verify health/PostgreSQL/Redis and ensure all old workers are gone. Then permit one explicitly authorized Vercel deployment of the matching frontend revision (temporarily adjust the ignored-build gate only if required), restore the build gate and keep public traffic closed. Do not reopen a mixed-version registration flow. No new secret is introduced; the three fallback settings above are mandatory for the approved hosted mode. Backend build remains `npm ci && npm run db:generate && npm run build`; start is `npm start`, with no automatic migration hidden in start/build.
-7. **Run live acceptance before reopening, using approved controlled accounts.** Check health/readiness; real Brevo registration/reset delivery; locked email/Change email; verified A cannot register B; Google account selection, known Google-only login, profile reload and logout; legacy hybrid confirmation; password+OTP continuity; consented clean start with no inherited history; reset and old-session rejection; role checks. Confirm configured fallback is active without exhausting production quotas. Expiry/replay/concurrency/budget-exhaustion tests remain local, not disruptive hosted probes. Compare historical business/financial counts without modifying customer records. Actual Brevo/Google participation is required; automated substitutes are not live acceptance.
-8. **Reopen and monitor safe signals.** Confirm matching source revision/builds, successful acceptance, no unexpected record changes and no credential leakage. Monitor safe error/event codes, dependency readiness and verification delivery failures. Do not log passwords, OTPs, grants, JWTs or private quarantine evidence. Reauthentication is intentional; history restoration for ambiguous unverified accounts remains a separately reviewed process.
-9. **Forward recovery if anything fails.** Keep/re-enter maintenance and do not release the frontend if migration/backend checks fail. Preserve checkpoint, failure evidence and all newer financial/audit records. A partially failed Prisma migration requires inspecting its applied DDL and a separately approved forward-repair/resolve procedure, not reset, blind reruns or dropping columns. Forward-fix while retaining auth-version invalidation; never restore the vulnerable backend or accept legacy JWTs. Whole-database restoration needs separate incident approval, an isolated restore first and reconciliation of newer writes. Reopen only after matching releases pass acceptance.
+## 3. Migration window, only when approved and necessary
 
-## Current blockers
+1. Deploy the secured application using `npm start` with
+   `MAINTENANCE_MODE=true`. Verify auth, booking and payment API requests return
+   HTTP 503 `guard-v1` on **both** Render and Vercel entry points.
+2. Confirm replacement is Live and previous workers/in-flight writes have drained.
+   A flag save or one 503 does not prove instantaneous termination. Provider
+   deployment guarantees plus observed cutover may establish the gate; distinguish
+   that inference from directly observed process termination.
+3. If the application cannot start, the reviewed
+   `npm run start:maintenance` bridge provides a no-business-handler gate.
+   `bridge-v1` health proves the gate is alive, not dependency readiness.
+4. Verify exact database identity, fresh backup, existing migration checksums and
+   the **sole approved pending set**. `npm run db:deploy` applies every pending
+   migration; stop on any unexpected one. Never reset, seed, drop security columns,
+   run `migrate dev`, or edit the ledger to hide a failed migration.
+5. Compare schema, constraints, indexes and preserved account/booking/financial
+   evidence against the checkpoint. Do not backfill email ownership on assumption.
+6. Deploy the approved secured backend and compatible frontend under maintenance.
+   Preserve automatic-release gates. Verify revisions, 503 markers and genuine
+   PostgreSQL/Redis readiness before approved reopening.
 
-### Historical maintenance-gate decision — implementation above supersedes preparation status
+## 4. Reopening and acceptance
 
-**BLOCKED for hosted migration until an actual gate is activated and verified with separate owner approval.** Auto-deploy OFF and ignored builds only prevent releases; neither stops current users or old backend workers.
+After separate reopening approval, set `MAINTENANCE_MODE=false`, retain
+`npm start`, and redeploy the same approved secured revision. Immediately test
+with controlled accounts/data:
 
-- Simplest provider gate: [Render Maintenance Mode](https://render.com/docs/maintenance-mode) returns 503 for every public request, including the direct backend URL and Vercel's existing external `/api` rewrite. It is **paid-web-service only**; do not assume it exists on the previously reported Free service or authorize a paid upgrade. Vercel Hobby's standard deployment protection does not protect the production domain ([official scope](https://vercel.com/docs/deployment-protection)); frontend protection alone never gates direct Render access.
-- If a paid Render maintenance toggle is available, the future authorized sequence is: activate it -> verify direct Render and Vercel-proxied API requests return 503 -> wait for in-flight requests and all background writes to drain -> record baseline/fresh checkpoint -> set approved fallback/provider environment -> migrate -> deploy matching backend -> prove old vulnerable deployment fully terminated from Render deployment events/logs -> release matching frontend -> controlled acceptance via a separately verified protected/private access path -> disable maintenance and verify normal public operation. A public 503 alone does not prove in-flight/background work has stopped. Do not migrate or reopen on incomplete evidence.
-- **Free-tier alternative requires a gate-only bridge release, not suspension/resume alone.** Prepare/test a minimal standalone maintenance server with no business/DB handlers and a health-only 200 plus all-other-paths 503. Deploy that isolated bridge first; wait for old application instances to terminate and in-flight work to drain; verify both entry points before migration. The new authentication release must also include a tested startup maintenance guard before any business/auth handler, so it can replace the bridge while remaining closed. Release the frontend behind that gate, then explicitly reopen only the reviewed secure backend. A narrowly scoped operator acceptance mechanism must be designed/tested before promising live acceptance while closed; do not assume one exists. This bridge/guard is not present in 9129e7c and has not been prepared or deployed in this documentation-only step.
-- Do not simply suspend Render, migrate and resume: without a verified replacement/startup gate, resume could serve the old vulnerable release. Do not rely on CORS, hidden frontend buttons, a Vercel-only page, guessed IP allowlists, DNS changes or successful new-build logs as proof that old instances are gone.
-- Verification now: current branch clean at 9129e7c before this note; current Vercel configuration forwards `/api/:path*` to the direct Render backend. Provider documentation establishes coverage/plan constraints, **not active gate status or account eligibility**. No hosted probes, requests to write endpoints, settings changes, releases or interruptions were performed. No application tests were rerun because no executable code changed.
+- Google chooser → correct profile → reload → logout; Google-only users do not
+  need to invent a password or inherit an unrelated email account.
+- Password login, registration OTP, Change Email, OTP expiry/replay, recovery and
+  old-session rejection after auth-version changes.
+- Legitimate legacy continuity retains the same history. Mailbox-only clean start
+  quarantines the original identity without exposing its private history.
+- Booking/seat reads and approved TEST checkout/cancellation; verify authoritative
+  payment/refund convergence without unnecessary coupon or payment consumption.
 
-**Next approval/choice:** confirm whether the service has paid Maintenance Mode. If not, use the no-cost bridge/guard preparation route; its exact tested revision and activation window require separate explicit authorization before any push or hosted change. Keep migration blocked until the gate acceptance evidence exists. Recovery remains maintenance-first/forward-fix; never reopen the vulnerable backend.
+Do not claim inbox delivery or personal provider sign-in from unit tests or
+public config responses alone.
 
-### Trusted-proxy blocker resolution — explicit mailbox-budget fallback
+## 5. Deferred webhooks and safe recovery
 
-Official Render edge guidance identifies X-Forwarded-For but does not establish the exact inbound socket CIDRs or a sanitization contract for this deployment. Vercel documents overwriting client forwarding headers at its edge; CineHook's external `/api` rewrite does not authenticate that edge to the separately public Render endpoint. No verified inbound allowlist was found. Render outbound service IPs are not inbound proxy identities. Do **not** populate `AUTH_TRUSTED_PROXY_CIDRS` from guesses, Cloudflare public ranges alone, service outbound ranges or claimed provider headers.
+Maintenance rejects webhooks with non-2xx; it neither acknowledges unprocessed
+events nor queues them locally. Holds still expire. Before/after reopening,
+inspect Razorpay TEST webhook enabled state, delivery failures and retry limits
+for all six existing event subscriptions. Late capture must reconcile/refund
+without reviving cancelled or expired seats. Provider retries are finite; missed
+events need separately approved reconciliation, never a false success response.
 
-For this portfolio deployment use **`AUTH_TRUSTED_PROXY_CIDRS=` (empty), `AUTH_OTP_RATE_LIMIT_MODE=mailbox-budget`, `AUTH_OTP_DAILY_EMAIL_BUDGET=240`**. This explicit fallback leaves global proxy trust OFF and never uses IP to authorize or separate OTP quota buckets. Redis atomically enforces 5 requests/mailbox/hour across all purposes plus at most 240 ownership emails per UTC day across workers, based on Redis server time. Blocked mailbox requests do not consume the global send budget. Accepted send attempts consume budget even on provider delivery failure (conservative, no automatic refund). Already-issued verification/grant consumption remains available after send-budget exhaustion. OTP expiry, attempt caps, single-use proofs, ownership policy and JWT invalidation are unchanged.
-
-This removes the accidental shared-proxy 100/hour lockout without pretending to preserve unverifiable per-person/IP identity. **Residual risk:** distributed or mailbox-spraying abuse can exhaust the daily budget and temporarily prevent new OTP sends; this is a deliberate provider-quota circuit breaker, not bot detection. 240 leaves nominal headroom below the previously observed Brevo 300/day allowance, but other sender traffic and provider reset timing must be considered; delivery is not guaranteed. Do not advertise unlimited registrations. A stronger future public-scale defense needs separately reviewed bot challenges or authenticated edge forwarding. Keep the network mode only for deployments with independently established proxy trust.
-
-Decision: **GO for the bounded portfolio fallback**, not GO for CIDR-based hosted client identification and not authorization to deploy. Tests use isolated Redis and no real emails/hosted writes. Sources: [Render inbound edge](https://render.com/articles/how-render-handles-ddos-attacks), [Vercel request headers](https://vercel.com/docs/headers/request-headers), [external rewrites](https://vercel.com/docs/routing/rewrites), [Express trust-boundary requirements](https://expressjs.com/en/guide/behind-proxies/).
-
-Local verification: **9 focused unit tests and 4 isolated Redis integration tests passed, zero skips**, including >100 mailboxes on one socket, forged headers, mailbox cross-purpose limits, concurrent budget exhaustion, shared-worker budget, verification after exhaustion, replay/expiry/attempt limits and delivery/Redis failures. Backend typecheck/build and diff check passed. Fallback is approved for local commit; identify its exact revision with `git log`. No hosted configuration was changed. Current branch contains 16 migrations; the sole new authentication migration remains additive and unchanged from the isolated migration/restore test. Hosted pending-migration status must still be checked at cutover; do not assume a stale 15-migration baseline.
-
-### Historical auth-only client-IP follow-up — superseded by approved fallback
-
-- Owner reports Render Auto-Deploy OFF and Vercel Ignored Build Step “Don't build anything”; not changed by this task. Confirm these still hold before eventual authorized push.
-- `AUTH_TRUSTED_PROXY_CIDRS` now provides an explicit, startup-validated IP/CIDR allowlist for OTP address resolution only. Empty by default; unrestricted `/0`, hostnames and symbolic trust aliases are rejected. Global Express `trust proxy` remains OFF. No cookie/protocol/payment behavior is changed.
-- Resolution starts at the socket peer and walks X-Forwarded-For right-to-left only while each hop is trusted; it stops at the first untrusted address. Other IP/provider headers and Origin never establish trust. IPv4-mapped IPv6 and alternate IPv6 spellings canonicalize to one bucket. Malformed/oversized chains fall back conservatively to socket identity. Shared public IPs intentionally share the existing 100/hour quota; mailbox 5/hour remains cross-address/cross-purpose.
-- **Hosted blocker remains:** verify precise Render socket-proxy CIDRs and sanitization/append ordering; for Vercel rewrites also verify the actual Vercel egress CIDRs and its overwritten client-IP chain. Do not copy test CIDRs into Render, allowlist all private/cloud ranges, or trust a claimed x-vercel header. If providers cannot guarantee this boundary, use an authenticated/signed forwarding hop in a separately approved change instead. Code capability and local tests do not prove hosted ingress identity. Leave the setting empty until evidence is available.
-- Focused coverage: direct clients, Vercel-like multi-hop chains, forged prefixes/provider headers, default distrust, malformed chains, canonical addresses, invalid startup settings and real Redis network/mailbox quota enforcement through actual auth routes. No hosted OTP requests or email sends.
-- Results: 9 focused unit tests passed (including existing ownership repository guards); 1 real-route/isolated-Redis integration passed with zero skips; backend typecheck and production build passed; diff whitespace check passed. No frontend/business logic or hosted settings changed. [Vercel header contract](https://vercel.com/docs/headers/request-headers) and [Render edge guidance](https://render.com/articles/how-render-handles-ddos-attacks) were reviewed; neither establishes the exact current trusted socket/egress CIDRs for this deployment. Provider-specific header names alone are not authentication.
-
-### Historical read-only prerequisite check — earlier statuses superseded above
-
-- **Neon: BLOCKED.** No authenticated control-plane access was available to inspect this project's actual restore window/checkpoints. Provider PITR support is not evidence of a usable project backup. Owner must confirm target branch, retained earliest/latest recovery timestamps and a verified restore path before approval. No database connection or write was performed in this check.
-- **Render ingress: BLOCKED for readiness, spoof check PASS.** `createApp` does not enable proxy trust; ownership requests use `req.ip`. Four local Express/Supertest cases (single/chained X-Forwarded-For, Forwarded, X-Real-IP) confirmed headers cannot replace socket identity. Behind Render this may instead share the 100/hour network bucket across users; the frontend also proxies `/api` through Vercel. Establish actual direct/proxied header sanitization and trusted ingress chain before selecting any trust policy. Do not blindly trust all headers or one hop. No application code changed.
-- **Brevo: PASS for no-send provider preflight only.** Using private existing local settings, read-only GET account/senders returned 200; free plan reported 300 credits and configured sender was present/active. Registration uses the existing HTTPS mailer with action-specific code text. Render must independently confirm matching BREVO_API_KEY, PASSWORD_RESET_FROM and optional PASSWORD_RESET_FROM_NAME. This proves neither hosted settings nor inbox delivery; no email was sent.
-- **Google: configuration acceptance still BLOCKED.** Owner must verify the Web client's authorized JavaScript origin is exactly `https://cine-hook-xi.vercel.app`, matching Render GOOGLE_CLIENT_ID and FRONTEND_ORIGIN. Keep nonce/CSRF/audience validation. After coordinated release, use controlled existing Google-only and fresh Google accounts: account chooser -> correct profile -> reload/protected request -> logout; verify old JWT rejection and deliberate legacy-collision handling without inherited history. Do not mark interactive login passed from public configuration alone.
-- **Release coordination: BLOCKED pending dashboard confirmation.** Repository has no Render Blueprint; frontend/vercel.json contains API/SPA rewrites but no automatic-deployment suppression. Actual connected branches/auto-deploy settings cannot be inferred from these files. Owner must disable Render auto-deploy and gate Vercel Git deployments before any authorized push, including feature previews. During approved maintenance: verify backup -> migrate sole approved migration -> release matching backend/frontend revisions with old workers drained -> acceptance -> reopen. Never roll back to vulnerable authentication.
-
-References: [Neon restore/history](https://neon.com/docs/postgres/backup-restore/branch-restore), [Express proxy trust](https://expressjs.com/en/guide/behind-proxies/), [Render deployment controls](https://render.com/docs/deploys), [Vercel Git controls](https://vercel.com/docs/project-configuration/git-configuration), [Google Web client setup](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
-
-- No approval to push, merge, migrate Neon or deploy.
-- Hosted backup/recovery capability and ingress/client-IP identity have not been verified.
-- **Recovery verification update, 2026-10-20 12:05 UTC: independent PostgreSQL backup/restore PASS.** The configured Neon target matched all private expected hostname/database/role checks. TLS hostname/certificate verification remained enabled. A repeatable-read, read-only exported snapshot was dumped and restored transactionally into a newly created loopback-only PostgreSQL database, without overwriting any database. All 33 table row counts and SHA-256 data fingerprints matched after normalizing timezone and sort collation; 391 restored constraints validated and zero invalid indexes. Included 4 users, 18 bookings, 11 payments, 5 refunds and 29 webhook events. Backup and detailed verification are access-restricted under `C:/Users/gaura/Documents/Codex/cinehook-neon-recovery-20261020/verification.json`; do not commit or upload the dump. Manual Neon snapshot is owner-reported (one, no expiration), not independently inspected. Remaining limits: roles/ACLs and Redis are excluded; later writes need reconciliation; obtain a fresh checkpoint immediately before eventual authorized migration. The earlier backup-unverified blocker is superseded for independent dump restorability only, not dashboard PITR verification.
-- Real Brevo delivery, interactive Google login and coordinated hosted cutover still require manual acceptance.
-- Existing unrelated frontend full-lint errors remain outside this auth patch; changed-file lint is checked separately.
+On failure retain/re-enable maintenance. Prefer reviewed forward repair.
+An application rollback may use a known-good **secured** revision only; never
+restore the pre-ownership vulnerability. Whole-database restoration must be into
+a separate target followed by reconciliation/approval, not overwrite newer user
+or financial records. Coordinate all-session invalidation after loss of auth or
+Redis recovery state. See [recovery limits](testing-and-recovery.md).
