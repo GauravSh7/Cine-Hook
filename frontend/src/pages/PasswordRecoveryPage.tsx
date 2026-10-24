@@ -6,8 +6,8 @@ import { useSession } from '../app/session-context'
 export function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
   const session = useSession()
   const [params] = useSearchParams()
-  const [mode] = useState<'RESET_PASSWORD'|'VERIFY_LEGACY'|'CLEAN_START'>(() => params.get('mode') === 'VERIFY_LEGACY' ? 'VERIFY_LEGACY' : params.get('mode') === 'CLEAN_START' ? 'CLEAN_START' : 'RESET_PASSWORD')
-  const [currentPassword,setCurrentPassword]=useState(''),[name,setName]=useState(''),[cleanConsent,setCleanConsent]=useState(false)
+  const [mode] = useState<'RESET_PASSWORD'|'CLEAN_START'>(() => params.get('mode') === 'CLEAN_START' ? 'CLEAN_START' : 'RESET_PASSWORD')
+  const [name,setName]=useState(''),[cleanConsent,setCleanConsent]=useState(false)
   const [step, setStep] = useState<'email' | 'otp' | 'password' | 'done'>('email')
   const [email, setEmail] = useState(''), [otp, setOtp] = useState('')
   const [challengeId, setChallengeId] = useState(''), [token, setToken] = useState('')
@@ -22,7 +22,7 @@ export function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
   const restart = () => {
     request.current?.abort(); request.current = null
     setStep('email'); setChallengeId(''); setOtp(''); setToken(''); setPassword(''); setConfirm('')
-    setCurrentPassword(''); setName(''); setCleanConsent(false); setError(''); setMessage(''); setResendAt(0)
+    setName(''); setCleanConsent(false); setError(''); setMessage(''); setResendAt(0)
   }
   const send = async (signal: AbortSignal) => {
     const result = mode === 'RESET_PASSWORD' ? await authApi.forgotPassword(email.trim(), signal) : await authApi.requestOwnership(mode,email.trim(),signal)
@@ -44,9 +44,8 @@ export function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
         const result = mode === 'RESET_PASSWORD' ? await authApi.verifyResetOtp(challengeId, otp, controller.signal) : await authApi.verifyOwnership(challengeId,otp,controller.signal)
         if (!controller.signal.aborted) { setToken(result.token); setOtp(''); setStep('password'); setMessage('') }
       } else if (step === 'password') {
-        const result = mode === 'RESET_PASSWORD' ? await authApi.resetPassword(token, password, controller.signal) : await authApi.completeOwnership({purpose:mode,token,password,
-          ...(mode === 'VERIFY_LEGACY' ? {currentPassword} : {name,cleanStartConfirmed:cleanConsent})},controller.signal).then(()=>({message:mode === 'CLEAN_START' ? 'Your clean account is ready. Sign in with your new password.' : 'Account ownership verified. Sign in with your new password.'}))
-        if (!controller.signal.aborted) { setPassword(''); setConfirm(''); setCurrentPassword(''); setToken(''); session.logout(); setMessage(result.message); setStep('done') }
+        const result = mode === 'RESET_PASSWORD' ? await authApi.resetPassword(token, password, controller.signal) : await authApi.completeOwnership({purpose:mode,token,password,name,cleanStartConfirmed:cleanConsent},controller.signal).then(()=>({message:'Your clean account is ready. Sign in with your new password.'}))
+        if (!controller.signal.aborted) { setPassword(''); setConfirm(''); setToken(''); session.logout(); setMessage(result.message); setStep('done') }
       }
     } catch (value) { if (!controller.signal.aborted) setError(value instanceof Error ? value.message : 'Please try again.') }
     finally { if (!controller.signal.aborted) setBusy(false) }
@@ -64,12 +63,10 @@ export function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
       <p className="muted mt-3">{step === 'email' ? (reset ? 'Request a new code to set or reset your password.' : 'Enter your account email to receive a verification code.') : step === 'otp' ? 'Enter the six-digit code. It expires in 10 minutes.' : step === 'password' ? 'Choose a strong password. If you already have one, use a different password.' : ''}</p>
       {message && <p role="status" className="mt-4">{message}</p>}
       {mode === 'CLEAN_START' && <p className="mt-4">Your previous private history is not transferred. The old account is secured separately; restoring its history requires additional ownership review. This does not cancel any bookings or financial records.</p>}
-      {mode === 'VERIFY_LEGACY' && <p className="muted mt-4">For this older account, we need both your email code and existing password to protect your history. If you no longer know the password, contact support. Accounts linked to Google can sign in with Google.</p>}
       {step === 'done' ? <Link className="btn mt-5" to="/login">Back to login</Link> : <form className="mt-6 space-y-4" onSubmit={submit}>
         {step === 'email' && <label className="block">Email address<input className="input mt-2" type="email" maxLength={254} autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} required disabled={busy} /></label>}
         {step === 'otp' && <label className="block">Verification code<input className="input mt-2" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, ''))} required disabled={busy} /></label>}
         {step === 'password' && <>
-          {mode === 'VERIFY_LEGACY' && <label className="block">Current password<input type="password" className="input mt-2" autoComplete="current-password" value={currentPassword} onChange={event=>setCurrentPassword(event.target.value)} required disabled={busy}/></label>}
           {mode === 'CLEAN_START' && <label className="block">Name for new account<input className="input mt-2" autoComplete="name" maxLength={100} value={name} onChange={event=>setName(event.target.value)} required disabled={busy}/></label>}
           <label className="block">New password<input className="input mt-2" type="password" autoComplete="new-password" minLength={8} value={password} onChange={event => setPassword(event.target.value)} required disabled={busy} /></label>
           <label className="block">Confirm new password<input className="input mt-2" type="password" autoComplete="new-password" value={confirm} onChange={event => setConfirm(event.target.value)} required disabled={busy} /></label>

@@ -15,8 +15,9 @@ Prepared 25 October 2026 from `2d9fd759`. No schema migration is required.
   Success is green and returns to login without storing a session automatically.
   Resend has a 60-second UI cooldown plus unchanged authoritative server limits.
 - Standard password recovery has no choice selector. Explicit legacy continuity
-  still needs current-password proof plus OTP; mailbox-only access cannot inherit
-  private history. Existing clean-start backend protections are not removed.
+  is retired from the UI and public backend API by the follow-up removal change;
+  mailbox-only access still cannot inherit private history. Existing clean-start
+  backend protections and historical recovery/audit primitives are not removed.
 - Logout confirmation is keyboard accessible and uses `POST /api/auth/logout`.
   Successful revocation increments durable `authVersion`, signing out all active
   sessions for that account before browser state is cleared. Failure remains
@@ -73,7 +74,7 @@ Prepared 25 October 2026 from `2d9fd759`. No schema migration is required.
    not activate an account; controlled resend invalidates the old challenge.
    Correct code produces green success and Continue to login, not automatic login.
 4. Verified-account recovery: email → OTP → new, different password → login.
-   A legacy account without continuity proof must not reveal its old history.
+   A legacy unverified account must remain blocked from email-only access to old history.
 5. Logout: Cancel and Escape preserve login; Confirm signs out. Old session must
    fail protected reads. Test desktop and mobile, including header-menu keyboard
    navigation. Do not use a customer's account or consume FIRST50/payment records.
@@ -86,3 +87,9 @@ database rollback is needed for this additive endpoint/UI release. Any auth
 versions already incremented remain incremented; users simply sign in again.
 
 **Feature freeze remains pending final deployed acceptance.**
+
+Follow-up: “Verify an existing account” was removed at the owner's request.
+Old `mode=VERIFY_LEGACY` links open ordinary Forgot Password; the public backend
+rejects that retired purpose before issuing mail or changing an account. Verified
+account password reset is unchanged. Unverified legacy accounts need linked Google
+sign-in or separate ownership review; this removal does not silently verify them.

@@ -14,8 +14,8 @@ export function setAccessToken(token: string | null): void { accessToken = token
 export function getServerNow(): number { return Date.now() + serverOffsetMs }
 
 const safeMessages: Record<string, string> = {
-  EMAIL_VERIFICATION_REQUIRED: 'Verify your email and existing password before signing in. Use account recovery below.',
-  OWNERSHIP_CONTINUITY_REQUIRED: 'This older account needs its existing password as well as email verification to protect its history. Use “Verify an existing account” on the login page. If you do not know that password, contact support. Google users should sign in with Google.',
+  EMAIL_VERIFICATION_REQUIRED: 'This older account needs additional ownership review. Use Google sign-in if already linked, or contact support.',
+  OWNERSHIP_CONTINUITY_REQUIRED: 'Password reset cannot unlock this older account’s private history. Use Google sign-in if already linked, or contact support for ownership review.',
   OWNERSHIP_PROOF_INVALID: 'Verification is invalid or expired. Request a new code and try again.',
   OWNERSHIP_CONFLICT: 'Account ownership changed. Start again; no accounts were merged.',
   OWNERSHIP_RATE_LIMITED: 'Too many verification requests. Please try again later.',

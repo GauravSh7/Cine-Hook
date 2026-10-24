@@ -39,7 +39,7 @@ export class OwnershipService {
       throw new AppError(400, 'PASSWORD_REUSED', 'Choose a password different from your current password.');
     }
     if (input.purpose === 'RESET_PASSWORD' && (!user || !user.emailVerifiedAt)) {
-      throw new AppError(409, 'OWNERSHIP_CONTINUITY_REQUIRED', 'Verify your existing password and email, or choose a clean account without previous history. Google users should sign in with Google.');
+      throw new AppError(409, 'OWNERSHIP_CONTINUITY_REQUIRED', 'This account requires additional ownership review. Email verification alone cannot unlock its private history.');
     }
     if (input.purpose === 'VERIFY_LEGACY' && (!user?.passwordHash || !input.currentPassword || !await bcrypt.compare(input.currentPassword, user.passwordHash))) throw invalid();
     if (input.purpose === 'CLEAN_START' && (!user || !input.cleanStartConfirmed)) throw invalid();

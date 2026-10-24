@@ -4,7 +4,7 @@ import { expect, it, vi } from 'vitest'
 import App from '../src/App'
 import { failure, mockApi, ok, user } from './fixtures'
 
-it.each(['VERIFY_LEGACY', 'CLEAN_START'])('clears credentials and consent when restarting recovery for another email in %s', async mode => {
+it.each(['CLEAN_START'])('clears credentials and consent when restarting recovery for another email in %s', async mode => {
   window.history.replaceState({}, '', `/forgot-password?mode=${mode}`)
   mockApi(path => path === '/api/auth/ownership/request' ? ok({challengeId:'c'.repeat(43),message:'Check your email.'}) : path === '/api/auth/ownership/verify' ? ok({token:'t'.repeat(43)}) : undefined)
   render(<App />)
@@ -16,13 +16,27 @@ it.each(['VERIFY_LEGACY', 'CLEAN_START'])('clears credentials and consent when r
     await screen.findByLabelText('New password',{exact:true})
   }
   await verify('first@example.com')
-  if(mode==='VERIFY_LEGACY') await userEvent.type(screen.getByLabelText('Current password'),'old-sensitive-password')
-  else { await userEvent.type(screen.getByLabelText('Name for new account'),'First owner'); await userEvent.click(screen.getByRole('checkbox')) }
+  await userEvent.type(screen.getByLabelText('Name for new account'),'First owner'); await userEvent.click(screen.getByRole('checkbox'))
   await userEvent.click(screen.getByRole('button',{name:'Start again'}))
   await userEvent.clear(screen.getByLabelText('Email address'))
   await verify('second@example.com')
-  if(mode==='VERIFY_LEGACY') expect(screen.getByLabelText('Current password')).toHaveValue('')
-  else { expect(screen.getByLabelText('Name for new account')).toHaveValue(''); expect(screen.getByRole('checkbox')).not.toBeChecked(); expect(screen.getByRole('button',{name:'Create clean account'})).toBeDisabled() }
+  expect(screen.getByLabelText('Name for new account')).toHaveValue(''); expect(screen.getByRole('checkbox')).not.toBeChecked(); expect(screen.getByRole('button',{name:'Create clean account'})).toBeDisabled()
+})
+
+it('removes existing-account verification from login without removing Forgot password',async()=>{
+  window.history.replaceState({},'','/login');mockApi();render(<App/>)
+  expect(screen.queryByRole('link',{name:'Verify an existing account'})).not.toBeInTheDocument()
+  expect(screen.getByRole('link',{name:'Forgot password?'})).toHaveAttribute('href','/forgot-password')
+})
+
+it('treats the retired legacy verification URL as ordinary forgot password',async()=>{
+  window.history.replaceState({},'','/forgot-password?mode=VERIFY_LEGACY')
+  const calls=mockApi(path=>path==='/api/auth/forgot-password'?ok({challengeId:'c'.repeat(43),message:'Check your inbox'}):undefined)
+  render(<App/>);await userEvent.type(screen.getByLabelText('Email address'),'owner@example.com')
+  await userEvent.click(screen.getByRole('button',{name:'Send OTP'}))
+  expect(await screen.findByLabelText('Verification code')).toBeVisible()
+  expect(calls.some(c=>c.path==='/api/auth/ownership/request')).toBe(false)
+  expect(calls.filter(c=>c.path==='/api/auth/forgot-password')).toHaveLength(1)
 })
 
 it('requires explicit clean-account consent and never previews old account data', async () => {
